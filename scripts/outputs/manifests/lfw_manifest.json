@@ -1,0 +1,29 @@
+{
+  "counts": {
+    "identities_total": 5749,
+    "images_test": 1578,
+    "images_total": 13233,
+    "images_train": 10315,
+    "images_val": 1340
+  },
+  "created_utc": "2026-02-23T21:31:30.093792+00:00",
+  "dataset": "tfds:lfw",
+  "dataset_version": "0.1.1",
+  "files": {
+    "manifest_json": "manifests/lfw_manifest.json",
+    "samples_csv": "manifests/lfw_samples.csv"
+  },
+  "identity_counts": {
+    "identities_test": 575,
+    "identities_train": 4599,
+    "identities_val": 575
+  },
+  "seed": 1337,
+  "split_policy": "identity-disjoint",
+  "split_ratios": {
+    "test": 0.1,
+    "train": 0.8,
+    "val": 0.1
+  },
+  "tfds_data_dir": null
+}

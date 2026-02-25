@@ -24,6 +24,12 @@ MANIFEST
 
 # Virtual Environments
 venv/
+.venv/
+.venv_clean/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # PyCharm
 .idea/
@@ -73,7 +79,6 @@ cython_debug/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Environment variables
 .env
@@ -88,10 +93,10 @@ cython_debug/
 *.pb
 
 # Data files (if large - uncomment if needed)
-# data/
-# datasets/
-# *.csv
-# *.json
+data/
+
+# Generated outputs (manifests, CSVs, etc.)
+outputs/
 
 # Logs
 *.log

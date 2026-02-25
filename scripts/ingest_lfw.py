@@ -13,7 +13,7 @@ def main():
     # configure
     seed = 1337
     split_policy = "identity_disjoint"
-    split_ratios = {"train": 0.7, "val": 0.2, "test": 0.1}
+    split_ratios = {"train": 0.7, "val": 0.1, "test": 0.2}
     data_root = Path("data")
     out_root = Path("outputs")
 

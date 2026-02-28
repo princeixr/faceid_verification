@@ -4,11 +4,12 @@ import csv
 import json 
 import sys
 from typing import Dict, List, Tuple, Optional
-from src.similarity_score import get_image_embedding, get_cosine_similarity_batch, euclidean_distance_batch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.similarity_score import get_image_embedding, get_cosine_similarity_batch, euclidean_distance_batch
 
 def get_pair_detail(csv_path: Path) -> List[Dict]:
     """Load pair csv from relative path"""

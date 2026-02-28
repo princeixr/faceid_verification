@@ -1,6 +1,7 @@
 import numpy as np 
 from pathlib import Path 
 from typing import Dict, List, Tuple, Optional
+import math
 import csv 
 import json 
 import sys
@@ -67,3 +68,44 @@ def euclidean_distance_batch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     returns: (N,) L2 distance per row
     """
     return np.linalg.norm(a - b, axis=1)
+
+
+def get_cosine_similarity_loop(a_list: List[List[float]], b_list: List[List[float]], eps: float = 1e-12) -> List[float]:
+    """
+    Naive Python implementation of cosine similarity using for-loops.
+    """
+    scores = []
+    # Loop over every pair (N)
+    for i in range(len(a_list)):
+        dot_product = 0.0
+        norm_a_sq = 0.0
+        norm_b_sq = 0.0
+        
+        # Loop over every feature in the vector (D)
+        for j in range(len(a_list[i])):
+            dot_product += a_list[i][j] * b_list[i][j]
+            norm_a_sq += a_list[i][j] ** 2
+            norm_b_sq += b_list[i][j] ** 2
+            
+        norm_a = math.sqrt(norm_a_sq)
+        norm_b = math.sqrt(norm_b_sq)
+        
+        score = dot_product / ((norm_a * norm_b) + eps)
+        scores.append(score)
+        
+    return scores
+
+def euclidean_distance_loop(a_list: List[List[float]], b_list: List[List[float]]) -> List[float]:
+    """
+    Naive Python implementation of Euclidean distance using for-loops.
+    """
+    scores = []
+    for i in range(len(a_list)):
+        dist_sq = 0.0
+        for j in range(len(a_list[i])):
+            diff = a_list[i][j] - b_list[i][j]
+            dist_sq += diff ** 2
+            
+        scores.append(math.sqrt(dist_sq))
+        
+    return scores

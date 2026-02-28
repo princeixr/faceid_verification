@@ -2,11 +2,10 @@ import csv
 import json
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Tuple
 from collections import defaultdict
 
 # filepath: src/pair_lfw.py
-
 
 def load_samples_csv(csv_path: Path) -> List[Dict]:
     """Load samples from CSV file."""
@@ -18,24 +17,11 @@ def load_samples_csv(csv_path: Path) -> List[Dict]:
     return records
 
 
-def load_manifest(manifest_path: Path) -> Dict:
-    """Load manifest JSON file."""
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
-
-
-def group_samples_by_person(records: List[Dict]) -> Dict[str, List[Dict]]:
-    """Group samples by person identity."""
-    grouped = defaultdict(list)
-    for record in records:
-        grouped[record["person"]].append(record)
-    return grouped
-
-
 def generate_pairs(
     records: List[Dict],
     seed: int,
-    num_positive_pairs: int = 300,
-    num_negative_pairs: int = 300,
+    num_positive_pairs: int = 3000,
+    num_negative_pairs: int = 3000,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
     """
     Generate deterministic positive and negative pairs split by train/val/test.
@@ -43,10 +29,6 @@ def generate_pairs(
     Returns:
         (train_pairs, val_pairs, test_pairs)
     """
-    rng = np.random.default_rng(seed)
-    
-    # Group by person
-    person_samples = group_samples_by_person(records)
     
     # Separate by split
     split_samples = defaultdict(lambda: defaultdict(list))
@@ -84,7 +66,7 @@ def generate_pairs(
                 f"Split '{split}': requested {num_positive_pairs} positive pairs, generated {available_positive_pairs} available pairs."
             )
         
-        # Shuffle positive pairs deterministically (use split index, not hash)
+        # Shuffle positive pairs deterministically (use split index)
         rng_pos = np.random.default_rng(seed + split_idx)
         pos_indices = rng_pos.permutation(len(positive_pairs))
         positive_pairs = [positive_pairs[i] for i in pos_indices[:num_positive_pairs]]
@@ -156,11 +138,9 @@ def main():
     data_root = Path("data")
     out_root = Path("outputs")
     
-    # Load manifest and samples
-    manifest_path = out_root / "manifests" / "lfw_manifest.json"
+    # Load samples
     samples_csv = out_root / "manifests" / "lfw_samples.csv"
     
-    manifest = load_manifest(manifest_path)
     records = load_samples_csv(samples_csv)
     
     # Generate pairs

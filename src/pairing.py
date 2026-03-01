@@ -4,8 +4,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple
 from collections import defaultdict
-
-# filepath: src/pair_lfw.py
+from src.config import Config
 
 def load_samples_csv(csv_path: Path) -> List[Dict]:
     """Load samples from CSV file."""
@@ -19,9 +18,7 @@ def load_samples_csv(csv_path: Path) -> List[Dict]:
 
 def generate_pairs(
     records: List[Dict],
-    seed: int,
-    num_positive_pairs: int = 3000,
-    num_negative_pairs: int = 3000,
+    config: Config,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
     """
     Generate deterministic positive and negative pairs split by train/val/test.
@@ -29,6 +26,11 @@ def generate_pairs(
     Returns:
         (train_pairs, val_pairs, test_pairs)
     """
+    # Use config values
+    seed = config.random.seed
+    num_positive_pairs = config.pairs.num_positive_pairs
+    num_negative_pairs = config.pairs.num_negative_pairs
+    max_attempts_multiplier = config.pairs.max_attempts_multiplier
     
     # Separate by split
     split_samples = defaultdict(lambda: defaultdict(list))
@@ -66,8 +68,8 @@ def generate_pairs(
                 f"Split '{split}': requested {num_positive_pairs} positive pairs, generated {available_positive_pairs} available pairs."
             )
         
-        # Shuffle positive pairs deterministically (use split index)
-        rng_pos = np.random.default_rng(seed + split_idx)
+        # Shuffle positive pairs deterministically (use config offset)
+        rng_pos = np.random.default_rng(seed + config.random.pair_positive_offset + split_idx)
         pos_indices = rng_pos.permutation(len(positive_pairs))
         positive_pairs = [positive_pairs[i] for i in pos_indices[:num_positive_pairs]]
         
@@ -81,11 +83,11 @@ def generate_pairs(
                 f"Split '{split}' has fewer than 2 identities; skipping negative pair generation."
             )
         else:
-            # Use separate RNG for negative pairs to avoid dependency on positive pair generation
-            rng_neg = np.random.default_rng(seed + 1000 + split_idx)
+            # Use separate RNG for negative pairs (use config offset)
+            rng_neg = np.random.default_rng(seed + config.random.pair_negative_offset + split_idx)
 
             attempts = 0
-            max_attempts = num_negative_pairs * 10  # Prevent infinite loops
+            max_attempts = num_negative_pairs * max_attempts_multiplier
             while len(negative_pairs_seen) < num_negative_pairs and attempts < max_attempts:
                 person1, person2 = rng_neg.choice(people_list, size=2, replace=False)
                 # Get a random index from 0 to the length of the list
@@ -115,7 +117,8 @@ def generate_pairs(
         
         combined_pairs = positive_pairs + negative_pairs_list
         
-        rng_final = np.random.default_rng(seed + 2000 + split_idx)
+        # Shuffle final pairs (use config offset)
+        rng_final = np.random.default_rng(seed + config.random.pair_shuffle_offset + split_idx)
         rng_final.shuffle(combined_pairs)
         all_pairs[split] = combined_pairs
     

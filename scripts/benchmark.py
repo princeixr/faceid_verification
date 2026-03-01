@@ -7,6 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
     
+from src.config import Config
 from src.similarity_score import (
     get_cosine_similarity_batch,
     get_cosine_similarity_loop,
@@ -15,9 +16,13 @@ from src.similarity_score import (
 )
 
 def main():
-    # 1. Create dummy data: 10,000 pairs of vectors, each with 100 dimensions
+    # Load config
+    config_path = PROJECT_ROOT / "configs" / "default.yaml"
+    config = Config.from_file(config_path)
+    
+    # 1. Create dummy data: 10,000 pairs of vectors, using config embedding dimension
     N = 10000
-    D = 100
+    D = config.embedding.dimension
     print(f"Benchmarking with N={N} pairs and D={D} dimensions...\n")
     
     # NumPy arrays for the vectorized functions
@@ -33,12 +38,12 @@ def main():
     print("--- Cosine Similarity ---")
     
     start_time = time.perf_counter()
-    loop_cos = get_cosine_similarity_loop(a_list, b_list)
+    loop_cos = get_cosine_similarity_loop(a_list, b_list, config)
     loop_time = time.perf_counter() - start_time
     print(f"Python For-Loop: {loop_time:.4f} seconds")
     
     start_time = time.perf_counter()
-    vec_cos = get_cosine_similarity_batch(a_np, b_np)
+    vec_cos = get_cosine_similarity_batch(a_np, b_np, config)
     vectorized_time = time.perf_counter() - start_time
     print(f"NumPy Vectorized: {vectorized_time:.4f} seconds")
     

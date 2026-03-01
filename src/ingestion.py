@@ -6,9 +6,10 @@ from PIL import Image  # pip install pillow
 from collections import Counter
 from pathlib import Path
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 from collections import defaultdict
 import csv
+from src.config import Config
 
 
 def write_samples_csv(records: list[dict], out_path: Path) -> None:
@@ -73,11 +74,14 @@ def write_manifest(manifest: dict, out_path: Path) -> None:
 
 def make_identity_split_map(
     identities: List[str],
-    seed: int,
-    train_ratio: float = 0.7,
-    val_ratio: float = 0.1,
-    test_ratio: float = 0.2,
+    config: Config,
 ) -> Dict[str, str]:
+    # Use config values
+
+    seed = config.random.seed
+    train_ratio = config.split.train_ratio
+    val_ratio = config.split.val_ratio
+    test_ratio = config.split.test_ratio
 
     # normalize ratios (in case they don't sum to 1.0 exactly)
     s = train_ratio + val_ratio + test_ratio
@@ -144,16 +148,31 @@ def compute_split_counts(records: List[Dict]) -> Dict:
     }
 
 
-def download_and_save_lfw_images(data_root: Path, overwrite: bool = False) -> list[dict]:
+def download_and_save_lfw_images(
+    data_root: Path, 
+    config: Config,
+    overwrite: Optional[bool] = None
+) -> list[dict]:
 
     skipped = 0
     written = 0
-    images_dir = data_root / "lfw" / "images"
+    
+    # Use config paths
+    images_dir = data_root / config.paths.lfw_dir / config.paths.images_dir
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    ds = tfds.load("lfw", split="train", shuffle_files=False)  # determinism knob
+    # Use config data source settings
+    ds = tfds.load(
+        config.data_source.name.replace("tfds:", ""), 
+        split=config.data_source.tfds_split, 
+        shuffle_files=config.data_source.shuffle_files
+    )
 
     records: list[dict] = []
+    
+    # Use config overwrite setting if not explicitly provided
+    if overwrite is None:
+        overwrite = config.ingestion.overwrite
 
     for sample_id, ex in enumerate(tfds.as_numpy(ds)):
         person = ex["label"].decode("utf-8")          # bytes -> str
@@ -163,20 +182,25 @@ def download_and_save_lfw_images(data_root: Path, overwrite: bool = False) -> li
         person_dir = images_dir / person
         person_dir.mkdir(parents=True, exist_ok=True)
 
-        # Deterministic filename: sample_id-based (stable)
-        filename = f"{sample_id:06d}.jpg"
+        # Use config filename template
+        filename = config.image.filename_template.format(sample_id=sample_id)
         out_path = person_dir / filename
 
         if out_path.exists() and not overwrite:
             skipped += 1
         else:
-            Image.fromarray(img).save(out_path, format="JPEG", quality=95) # Write image (idempotent: overwrites consistently)
+            # Use config image format and quality
+            Image.fromarray(img).save(
+                out_path, 
+                format=config.image.format, 
+                quality=config.image.quality
+            )
             written += 1
 
         # Store a RELATIVE path so it works on another machine
         # Resolve to absolute path first, then compute relative to project root
         out_path_abs = out_path.resolve()
-        project_root = Path.cwd().resolve()
+        project_root = config.paths.project_root.resolve()
         rel_path = out_path_abs.relative_to(project_root).as_posix()  
         records.append(
             {"sample_id": sample_id, "person": person, "rel_path": rel_path}

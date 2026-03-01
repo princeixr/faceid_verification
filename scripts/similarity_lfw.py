@@ -9,7 +9,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.similarity_score import get_image_embedding, get_cosine_similarity_batch, euclidean_distance_batch
+from src.config import Config
+from src.similarity_score import get_image_embedding, get_cosine_similarity_batch, euclidean_distance_batch, build_embedding_batches
 
 def get_pair_detail(csv_path: Path) -> List[Dict]:
     """Load pair csv from relative path"""
@@ -20,18 +21,6 @@ def get_pair_detail(csv_path: Path) -> List[Dict]:
             record.append(row)
     return record
 
-def build_embedding_batches(pairs: List[Dict], D: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    left_vecs, right_vecs, labels = [], [], []
-    for p in pairs:
-        left_vecs.append(get_image_embedding(p["left_path"], D=D))
-        right_vecs.append(get_image_embedding(p["right_path"], D=D))
-        labels.append(int(p["label"]))
-
-    L = np.stack(left_vecs, axis=0)    # (N, D)
-    R = np.stack(right_vecs, axis=0)   # (N, D)
-    y = np.asarray(labels)             # (N,)
-
-    return L, R, y
 
 def write_pairs_with_scores(
     pairs: List[Dict],
@@ -67,37 +56,46 @@ def write_pairs_with_scores(
             writer.writerow(out_row)
 
 def main():
-    #Load train, test and val samples' path and label
-    out_root = PROJECT_ROOT / "outputs"
-    train_pair_path = out_root / "pairs" / "train_pairs.csv"
-    test_pair_path = out_root / "pairs" / "test_pairs.csv"
-    val_pair_path = out_root / "pairs" / "val_pairs.csv"
+    # Load config
+    config_path = PROJECT_ROOT / "configs" / "default.yaml"
+    config = Config.from_file(config_path)
+    
+    # Use config paths
+    out_root = config.paths.out_root
+    train_pair_path = out_root / config.paths.pairs_dir / config.files.train_pairs_csv
+    test_pair_path = out_root / config.paths.pairs_dir / config.files.test_pairs_csv
+    val_pair_path = out_root / config.paths.pairs_dir / config.files.val_pairs_csv
 
     #load pair records
     train_pair = get_pair_detail(train_pair_path)
     test_pair = get_pair_detail(test_pair_path)
     val_pair = get_pair_detail(val_pair_path)
 
-    D = 100 #embedding the image into 100 dimention
+    # Use config embedding dimension
     #create embedding batches 
-    train_left, train_right, train_label = build_embedding_batches(train_pair, D=D)
-    test_left, test_right, test_label = build_embedding_batches(test_pair, D=D)
-    val_left, val_right, val_label = build_embedding_batches(val_pair, D=D)
+    train_left, train_right, train_label = build_embedding_batches(train_pair, config)
+    test_left, test_right, test_label = build_embedding_batches(test_pair, config)
+    val_left, val_right, val_label = build_embedding_batches(val_pair, config)
 
-    #get cosine similarity
-    train_score = get_cosine_similarity_batch(train_left, train_right)
-    test_score = get_cosine_similarity_batch(test_left, test_right)
-    val_score = get_cosine_similarity_batch(val_left, val_right)
+    #get cosine similarity using config epsilon
+    train_score = get_cosine_similarity_batch(train_left, train_right, config)
+    test_score = get_cosine_similarity_batch(test_left, test_right, config)
+    val_score = get_cosine_similarity_batch(val_left, val_right, config)
 
     #get euclidean distance
     train_l2 = euclidean_distance_batch(train_left, train_right)
     test_l2 = euclidean_distance_batch(test_left, test_right)
     val_l2 = euclidean_distance_batch(val_left, val_right)
 
-    scored_dir = out_root / "similarity_score"
-    write_pairs_with_scores(train_pair, train_score, scored_dir / "train_pairs_scored.csv", l2_scores=train_l2)
-    write_pairs_with_scores(test_pair, test_score, scored_dir / "test_pairs_scored.csv", l2_scores=test_l2)
-    write_pairs_with_scores(val_pair, val_score, scored_dir / "val_pairs_scored.csv", l2_scores=val_l2)
+    # Use config paths and file names
+    scored_dir = out_root / config.paths.similarity_score_dir
+    write_pairs_with_scores(train_pair, train_score, scored_dir / config.files.train_pairs_scored_csv, l2_scores=train_l2)
+    write_pairs_with_scores(test_pair, test_score, scored_dir / config.files.test_pairs_scored_csv, l2_scores=test_l2)
+    write_pairs_with_scores(val_pair, val_score, scored_dir / config.files.val_pairs_scored_csv, l2_scores=val_l2)
+
+    # Success message
+    print("✅ Similarity scoring complete")
+    print(f"Scores saved to: {scored_dir}")
 
 
 if __name__ == "__main__":

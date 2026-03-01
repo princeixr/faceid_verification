@@ -6,39 +6,49 @@ import csv
 import json 
 import sys
 from PIL import Image
-
-BASE_DIR = Path(__file__).resolve().parent.parent
+from src.config import Config
 
 def get_image_array(
     image_path: str, 
-    size=(250,250), 
+    config: Config,
+    size: Optional[Tuple[int, int]] = None, 
     dtype: np.dtype = np.uint8
     ) -> np.ndarray:
     
-    path = BASE_DIR / image_path
-    img = Image.open(path).convert("RGB").resize(size) #making sure the image stays 250*250*3
+    if size is None:
+        size = config.image.size
+    
+    project_root = config.paths.project_root
+    path = project_root / image_path
+    img = Image.open(path).convert("RGB").resize(size)
     img_array = np.asarray(img, dtype=dtype)
 
     return img_array 
 
 def get_image_embedding(
     image_path: str, 
-    normalize: bool=True,
-    D: Optional[int]=None
+    config: Config,
+    normalize: Optional[bool] = None,
+    D: Optional[int] = None
     ) -> np.ndarray:
     """
     Convert the image array (H, W, 3) to a 1D vector
     Later on we will build the embedding logic
     """
-    img_array = get_image_array(image_path)
+    if normalize is None:
+        normalize = config.embedding.normalize
+    if D is None:
+        D = config.embedding.dimension
+    
+    img_array = get_image_array(image_path, config)
     x = img_array.astype(np.float32)
     #normalizing the values to [0, 1]
     if normalize:
-        x /= 255.0
+        x /= config.embedding.normalization_value
 
     flat = x.reshape(-1)
 
-    if D is None or D == flat.shape[0]:
+    if D == flat.shape[0]:
         return flat 
     if D <= 0:
         raise ValueError("D must be a positive integer.")
@@ -47,11 +57,19 @@ def get_image_embedding(
     idx = np.linspace(0, flat.shape[0] - 1, num=D, dtype=np.int64)
     return flat[idx]
 
-def get_cosine_similarity_batch(a: np.ndarray, b:np.ndarray, eps: float = 1e-12) -> np.ndarray:
+def get_cosine_similarity_batch(
+    a: np.ndarray, 
+    b: np.ndarray, 
+    config: Config,
+    eps: Optional[float] = None
+) -> np.ndarray:
     """
     a, b: (N, D)
     returns: (N,) cosine similarity per row
     """
+    if eps is None:
+        eps = config.similarity.epsilon
+    
     # dot per row
     dot_product = np.sum(a*b, axis = 1) #(N,)
 
@@ -70,10 +88,18 @@ def euclidean_distance_batch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.linalg.norm(a - b, axis=1)
 
 
-def get_cosine_similarity_loop(a_list: List[List[float]], b_list: List[List[float]], eps: float = 1e-12) -> List[float]:
+def get_cosine_similarity_loop(
+    a_list: List[List[float]], 
+    b_list: List[List[float]], 
+    config: Config,
+    eps: Optional[float] = None
+) -> List[float]:
     """
     Naive Python implementation of cosine similarity using for-loops.
     """
+    if eps is None:
+        eps = config.similarity.epsilon
+    
     scores = []
     # Loop over every pair (N)
     for i in range(len(a_list)):
@@ -109,3 +135,25 @@ def euclidean_distance_loop(a_list: List[List[float]], b_list: List[List[float]]
         scores.append(math.sqrt(dist_sq))
         
     return scores
+
+
+def build_embedding_batches(
+    pairs: List[Dict], 
+    config: Config,
+    D: Optional[int] = None
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build embedding batches from pairs."""
+    if D is None:
+        D = config.embedding.dimension
+    
+    left_vecs, right_vecs, labels = [], [], []
+    for p in pairs:
+        left_vecs.append(get_image_embedding(p["left_path"], config, D=D))
+        right_vecs.append(get_image_embedding(p["right_path"], config, D=D))
+        labels.append(int(p["label"]))
+
+    L = np.stack(left_vecs, axis=0)    # (N, D)
+    R = np.stack(right_vecs, axis=0)   # (N, D)
+    y = np.asarray(labels)             # (N,)
+
+    return L, R, y

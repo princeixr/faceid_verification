@@ -94,6 +94,16 @@ class Config:
             similarity = config_dict["similarity"]
             if "epsilon" in similarity:
                 similarity["epsilon"] = float(similarity["epsilon"])
+        
+        # Convert benchmark values
+        if "benchmark" in config_dict:
+            benchmark = config_dict["benchmark"]
+            if "num_pairs" in benchmark:
+                benchmark["num_pairs"] = int(benchmark["num_pairs"])
+            if "tolerance" in benchmark:
+                benchmark["tolerance"] = float(benchmark["tolerance"])
+            if "benchmark_dimension" in benchmark:
+                benchmark["benchmark_dimension"] = int(benchmark["benchmark_dimension"])
     
     def __getattr__(self, name: str):
         """Access nested config sections."""

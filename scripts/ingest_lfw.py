@@ -64,7 +64,7 @@ def main():
     write_samples_csv(records, samples_csv_path)
     
     # print results
-    print("✅ Ingestion complete")
+    print("Success: Ingestion complete")
     print(f"Samples CSV: {samples_csv_path}")
     print(f"Manifest:    {manifest_path}")
 

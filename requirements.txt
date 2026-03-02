@@ -1,4 +1,3 @@
-#
 # Minimal requirements for this project.
 
 tensorflow==2.20.0

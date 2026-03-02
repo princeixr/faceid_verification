@@ -34,7 +34,7 @@ Milestone 1 builds the foundational pipeline for face verification: data ingesti
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/facial_recognition.git
+git clone https://github.com/princeixr/FaceID_Verification.git
 cd facial_recognition
 ```
 
@@ -111,8 +111,6 @@ Running the pipeline multiple times with the same configuration produces identic
 * Reproducibility focus
 
 ## Architecture Overview
-
-## Installation Instructions
 
 ## Evaluation Section
 

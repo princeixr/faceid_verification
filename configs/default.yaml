@@ -1,0 +1,84 @@
+# Default configuration for facial recognition project
+# This file contains all configurable parameters that are currently hardcoded in the codebase
+
+# Paths configuration
+paths:
+  data_root: "data"
+  out_root: "outputs"
+  project_root: "."  # Will be resolved to current working directory
+  lfw_dir: "lfw"
+  images_dir: "images"
+  manifests_dir: "manifests"
+  pairs_dir: "pairs"
+  similarity_score_dir: "similarity_score"
+
+# Data source configuration
+data_source:
+  name: "tfds:lfw"  # TensorFlow Datasets name
+  tfds_split: "train"  # Which split to load from TFDS
+  shuffle_files: false  # For determinism
+
+# Random seed and reproducibility
+random:
+  seed: 1337
+  # Offsets for different RNG streams in pair generation
+  pair_positive_offset: 0
+  pair_negative_offset: 1000
+  pair_shuffle_offset: 2000
+
+# Train/val/test split configuration
+split:
+  policy: "identity_disjoint"  # Split policy name
+  train_ratio: 0.7
+  val_ratio: 0.1
+  test_ratio: 0.2
+
+# Image processing configuration
+image:
+  size: [250, 250]  # Image dimensions (height, width)
+  format: "JPEG"
+  quality: 95  # JPEG quality (1-100)
+  filename_template: "{sample_id:06d}.jpg"  # Format string for image filenames
+  dtype: "uint8"  # NumPy dtype for image arrays
+
+# Pair generation configuration
+pairs:
+  num_positive_pairs: 3000  # Number of positive pairs per split
+  num_negative_pairs: 3000  # Number of negative pairs per split
+  policy: "identity_disjoint_verification"
+  max_attempts_multiplier: 10  # Multiplier for max attempts when generating negative pairs
+  description: "Positive pairs: same identity within split. Negative pairs: different identities within split."
+
+# Embedding configuration
+embedding:
+  dimension: 100  # Embedding dimension (D)
+  normalize: true  # Whether to normalize pixel values to [0, 1]
+  normalization_value: 255.0  # Value to divide by for normalization
+
+# Similarity computation configuration
+similarity:
+  epsilon: 1e-12  # Small epsilon value for numerical stability in cosine similarity
+  metrics: ["cosine", "euclidean"]  # Which similarity metrics to compute
+
+# Ingestion configuration
+ingestion:
+  overwrite: false  # Whether to overwrite existing images
+  deterministic_ordering: true  # Whether to use deterministic ordering
+
+# Output file names
+files:
+  samples_csv: "lfw_samples.csv"
+  manifest_json: "lfw_manifest.json"
+  train_pairs_csv: "train_pairs.csv"
+  val_pairs_csv: "val_pairs.csv"
+  test_pairs_csv: "test_pairs.csv"
+  pair_policy_json: "pair_policy.json"
+  train_pairs_scored_csv: "train_pairs_scored.csv"
+  val_pairs_scored_csv: "val_pairs_scored.csv"
+  test_pairs_scored_csv: "test_pairs_scored.csv"
+
+# Benchmark configuration
+benchmark:
+  num_pairs: 10000
+  benchmark_dimension: 100
+  tolerance: 1e-6

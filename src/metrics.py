@@ -59,3 +59,43 @@ def compute_precision_recall_f1(tp: int, fp: int, fn: int) -> Tuple[float, float
         
     return precision, recall, f1
 
+def compute_balanced_accuracy(tp: int, fp: int, tn: int, fn: int) -> float:
+    """
+    Computes balanced accuracy: (True Positive Rate + True Negative Rate) / 2
+    """
+    # True Positive Rate (Sensitivity / Recall)
+    tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    
+    # True Negative Rate (Specificity)
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    
+    return (tpr + tnr) / 2.0
+
+
+def summarize_metrics(y_true, y_pred) -> dict:
+    """
+    Wrapper function that computes all metrics and returns them as a dictionary.
+    Used for saving directly to a JSON file for experiment tracking.
+    """
+    # 1. Get the base counts
+    tp, fp, tn, fn = compute_confusion_counts(y_true, y_pred)
+    
+    # 2. Compute all the derived metrics
+    accuracy = compute_accuracy(tp, fp, tn, fn)
+    precision, recall, f1 = compute_precision_recall_f1(tp, fp, fn)
+    balanced_acc = compute_balanced_accuracy(tp, fp, tn, fn)
+    
+    # 3. Pack them into a neat, JSON-serializable dictionary
+    return {
+        "confusion_matrix": {
+            "TP": tp,
+            "FP": fp,
+            "TN": tn,
+            "FN": fn
+        },
+        "accuracy": float(accuracy),
+        "balanced_accuracy": float(balanced_acc),
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1_score": float(f1)
+    }

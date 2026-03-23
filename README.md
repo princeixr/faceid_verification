@@ -34,7 +34,7 @@ Milestone 1 builds the foundational pipeline for face verification: data ingesti
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/facial_recognition.git
+git clone https://github.com/princeixr/FaceID_Verification.git
 cd facial_recognition
 ```
 
@@ -42,8 +42,8 @@ cd facial_recognition
 
 ```bash
 # Create virtual environment (optional but recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -74,16 +74,19 @@ All scripts automatically load configuration from `configs/default.yaml`.
 After running the pipeline, the following files are generated in `outputs/`:
 
 **Manifests** (`outputs/manifests/`):
+
 * `lfw_samples.csv` - Sample records with person, path, and split assignments
 * `lfw_manifest.json` - Dataset metadata including counts and split information
 
 **Pairs** (`outputs/pairs/`):
+
 * `train_pairs.csv` - Training pairs (left_path, right_path, label, split)
 * `val_pairs.csv` - Validation pairs
 * `test_pairs.csv` - Test pairs
 * `pair_policy.json` - Pair generation policy and parameters
 
 **Similarity Scores** (`outputs/similarity_score/`):
+
 * `train_pairs_scored.csv` - Training pairs with cosine similarity and L2 distance
 * `val_pairs_scored.csv` - Validation pairs with scores
 * `test_pairs_scored.csv` - Test pairs with scores
@@ -108,8 +111,6 @@ Running the pipeline multiple times with the same configuration produces identic
 * Reproducibility focus
 
 ## Architecture Overview
-
-## Installation Instructions
 
 ## Evaluation Section
 

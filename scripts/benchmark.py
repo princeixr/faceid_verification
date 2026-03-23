@@ -21,8 +21,8 @@ def main():
     config = Config.from_file(config_path)
     
     # 1. Create dummy data: 10,000 pairs of vectors, using config embedding dimension
-    N = 10000
-    D = config.embedding.dimension
+    N = config.benchmark.num_pairs
+    D = config.benchmark.benchmark_dimension
     print(f"Benchmarking with N={N} pairs and D={D} dimensions...\n")
     
     # NumPy arrays for the vectorized functions
@@ -33,7 +33,7 @@ def main():
     a_list = a_np.tolist()
     b_list = b_np.tolist()
 
-    TOLERANCE = 1e-6
+    TOLERANCE = config.benchmark.tolerance
     # --- COSINE SIMILARITY BENCHMARK ---
     print("--- Cosine Similarity ---")
     

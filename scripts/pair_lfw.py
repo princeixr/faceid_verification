@@ -43,7 +43,7 @@ def main():
     policy_path.parent.mkdir(parents=True, exist_ok=True)
     policy_path.write_text(json.dumps(pair_policy, indent=2), encoding="utf-8")
     
-    print("✅ Pair generation complete")
+    print("Success: Pair generation complete")
     print(f"Train pairs: {len(train_pairs)}")
     print(f"Val pairs:   {len(val_pairs)}")
     print(f"Test pairs:  {len(test_pairs)}")

@@ -76,3 +76,9 @@ files:
   train_pairs_scored_csv: "train_pairs_scored.csv"
   val_pairs_scored_csv: "val_pairs_scored.csv"
   test_pairs_scored_csv: "test_pairs_scored.csv"
+
+# Benchmark configuration
+benchmark:
+  num_pairs: 10000
+  benchmark_dimension: 100
+  tolerance: 1e-6

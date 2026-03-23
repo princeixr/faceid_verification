@@ -206,9 +206,9 @@ def download_and_save_lfw_images(
             {"sample_id": sample_id, "person": person, "rel_path": rel_path}
         )
 
-    print(f"✅ Image written: {written}")
-    print(f"❌ Image skipped: {skipped}")
-    print(f"🔍 Total images processed: {written + skipped}")
+    print(f"Image written: {written}")
+    print(f"Image skipped: {skipped}")
+    print(f"Total images processed: {written + skipped}")
 
     # Return only the records list; counts are logged above
     return records

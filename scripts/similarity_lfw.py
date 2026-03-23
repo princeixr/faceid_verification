@@ -10,7 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import Config
-from src.similarity_score import get_image_embedding, get_cosine_similarity_batch, euclidean_distance_batch, build_embedding_batches
+from src.similarity_score import get_cosine_similarity_batch, euclidean_distance_batch, build_embedding_batches
 
 def get_pair_detail(csv_path: Path) -> List[Dict]:
     """Load pair csv from relative path"""
@@ -30,7 +30,7 @@ def write_pairs_with_scores(
     l2_scores: Optional[np.ndarray] = None,
 ) -> None:
     """
-    Writes a new CSV with all original columns + cos_sim (+ optional l2_dist).
+    Writes a new CSV with all original columns + cos_sim + optional l2_dist.
     Keeps row order identical to the input `pairs`.
     """
     if len(pairs) != cos_scores.shape[0]:
@@ -94,7 +94,7 @@ def main():
     write_pairs_with_scores(val_pair, val_score, scored_dir / config.files.val_pairs_scored_csv, l2_scores=val_l2)
 
     # Success message
-    print("✅ Similarity scoring complete")
+    print("Success: Similarity scoring complete")
     print(f"Scores saved to: {scored_dir}")
 
 

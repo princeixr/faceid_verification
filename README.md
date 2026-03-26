@@ -21,6 +21,10 @@ The goal is to design and evaluate a reliable, well-engineered authentication se
 
 Milestone 1 builds the foundational pipeline for face verification: data ingestion from TensorFlow Datasets, deterministic pair generation for train/val/test splits, similarity scoring using cosine similarity and Euclidean distance, and performance benchmarking. The pipeline emphasizes reproducibility through fixed random seeds, deterministic file ordering, and identity-disjoint splits. This ensures consistent results across runs and enables reliable evaluation of similarity metrics.
 
+For a grader-focused Milestone 2 reproduction and results summary, see:
+
+* `reports/Milestone2_Report.md`
+
 ## Repo Layout
 
 * **`src/`**: Core modules (`config.py`, `ingestion.py`, `pairing.py`, `similarity_score.py`)

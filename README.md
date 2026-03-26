@@ -69,6 +69,57 @@ python3 scripts/benchmark.py
 
 All scripts automatically load configuration from `configs/default.yaml`.
 
+### 4. Milestone 2 Evaluation (Tracked Runs)
+
+Use the evaluation runner for threshold selection and final reporting:
+
+```bash
+# Sweep mode (default rule: max_accuracy)
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --note "baseline-sweep"
+
+# Sweep mode with a different selection rule
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "sweep-balanced"
+
+# Fixed mode (lock threshold for reporting)
+python scripts/run_eval.py --config configs/default.yaml --mode fixed --fixed-threshold 0.7 --note "final-fixed"
+```
+
+Threshold rule behavior:
+
+* You can change the rule any run using `--selection-rule`.
+* Supported rules: `max_accuracy`, `max_balanced_accuracy`, `max_f1`.
+* If not provided, the default is `max_accuracy`.
+
+This means threshold policy is not hardcoded. You can explicitly choose the rule per run for fair, reproducible comparisons.
+
+### 5. Tests
+
+Run unit and integration tests with:
+
+```bash
+python -m pytest -q tests
+```
+
+Run only the Milestone 2 miniature integration pipeline test:
+
+```bash
+python -m pytest -q tests/test_integration_eval_pipeline.py
+```
+
+### 6. Error Slice Analysis (Milestone 2)
+
+After running evaluation, generate at least two required error slices (false positives and false negatives):
+
+```bash
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
+```
+
+Artifacts are written under:
+
+* `outputs/runs/<run_id>/error_analysis/test_error_slices_summary.json`
+* `outputs/runs/<run_id>/error_analysis/test_false_positives.csv`
+* `outputs/runs/<run_id>/error_analysis/test_false_negatives.csv`
+
 ## Outputs
 
 After running the pipeline, the following files are generated in `outputs/`:

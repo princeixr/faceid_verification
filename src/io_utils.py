@@ -8,18 +8,18 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-
+import pandas as pd
 from src.config import Config
-
+import json
 
 def load_pairs_csv(config: Config) -> Any:
-    """
-    Load the saved pair artifact into an in-memory table.
+    base_path = config.paths.out_root / config.paths.pairs_dir
 
-    Expected columns (blueprint): pair_id, img1_path, img2_path, label, split
-    Your milestone-1 pairs currently use: left_path, right_path, label, split
-    """
-    raise NotImplementedError("TODO: implement load_pairs_csv()")
+    train_pairs_df = pd.read_csv(base_path / config.files.train_pairs_csv)
+    val_pairs_df = pd.read_csv(base_path / config.files.val_pairs_csv)
+    test_pairs_df = pd.read_csv(base_path / config.files.test_pairs_csv)
+    
+    return train_pairs_df, val_pairs_df, test_pairs_df
 
 
 def save_csv(table: Any, path: Path) -> None:
@@ -28,9 +28,9 @@ def save_csv(table: Any, path: Path) -> None:
 
 
 def save_json(data: Any, path: Path) -> None:
-    """Write JSON-serializable data to disk."""
-    raise NotImplementedError("TODO: implement save_json()")
-
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 def copy_config_snapshot(config: Config, path: Path) -> None:
     """Save the exact config used in a run folder."""

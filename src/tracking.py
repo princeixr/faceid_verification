@@ -13,19 +13,14 @@ from typing import Any
 from src.config import Config
 from datetime import datetime, timezone
 import uuid
+import json
 
 def make_run_id() -> str:
     """Create a unique run identifier."""
-    # Format goals:
-    # - Unique across runs (even if launched within the same second)
-    # - Filesystem-safe (no spaces/colons)
-    # - Short enough to read in logs and filenames
-    #
-    # Example: run_20260323T142530Z_a1b2c3d4
-    
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     suffix = uuid.uuid4().hex[:8]
+    ## Example: run_20260323T142530Z_a1b2c3d4
     return f"run_{ts}_{suffix}"
 
 
@@ -83,8 +78,8 @@ def create_run_dir(config: Config, run_id: str) -> Path:
 
 def save_run_info(path: Path, metadata: dict[str, Any]) -> None:
     """Write run_info.json with config name, note, split, pair version, commit hash, etc."""
-    raise NotImplementedError("TODO: implement save_run_info()")
 
+    path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 def append_run_summary(config: Config, row: dict[str, Any]) -> None:
     """Append one compact row to the master tracking file (e.g., outputs/run_summary.csv)."""

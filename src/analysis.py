@@ -35,6 +35,8 @@ def analyze_metrics(
     *,
     threshold_metrics: list[dict],
     selected_threshold: float,
+    selection_metrics: dict,
+    sweep_split_label: str,
     train_metrics: dict,
     test_metrics: dict,
     val_metrics: dict,
@@ -54,7 +56,7 @@ def analyze_metrics(
         thresholds.append(m["threshold"])
 
     # Best-threshold point
-    best_fpr, best_tpr = _rates_from_cm(train_metrics["confusion_matrix"])
+    best_fpr, best_tpr = _rates_from_cm(selection_metrics["confusion_matrix"])
 
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.plot(fprs, tprs, "o-", color="steelblue", label="Threshold sweep")
@@ -67,7 +69,7 @@ def analyze_metrics(
     ax.plot([0, 1], [0, 1], "--", color="lightgrey", label="Random")
     ax.set_xlabel("False Positive Rate (FPR)")
     ax.set_ylabel("True Positive Rate (TPR)")
-    ax.set_title("ROC-Style Curve (Threshold Sweep on Train)")
+    ax.set_title(f"ROC-Style Curve (Threshold Sweep on {sweep_split_label.title()})")
     ax.legend(loc="lower right")
     ax.set_xlim(-0.02, 1.02)
     ax.set_ylim(-0.02, 1.02)
@@ -87,7 +89,7 @@ def analyze_metrics(
                label=f"Selected θ = {selected_threshold:.3f}")
     ax.set_xlabel("Threshold")
     ax.set_ylabel("Metric Value")
-    ax.set_title("Metrics vs Threshold (Train Sweep)")
+    ax.set_title(f"Metrics vs Threshold ({sweep_split_label.title()} Sweep)")
     ax.legend(loc="best", fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()

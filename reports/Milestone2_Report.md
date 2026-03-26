@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This report is organized to mirror the milestone document requirements and to make grading straightforward.
+This report is organized to mirror the milestone document requirements and keep the workflow easy to follow.
 
 ## 2. Reproduction Commands (Copy-Paste)
 
@@ -21,7 +21,7 @@ python scripts/ingest_lfw.py
 python scripts/pair_lfw.py --config configs/default.yaml
 python scripts/similarity_lfw.py
 python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
-python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T203818Z_c9daa6e2 --split test --top-k 20
+python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T222634Z_fea08c15 --split test --top-k 20
 ```
 
 ### 2.3 Data-Centric Improved Pipeline
@@ -30,7 +30,7 @@ python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T203818Z
 python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
 python scripts/similarity_lfw.py
 python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
-python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T212540Z_86ba5024 --split test --top-k 20
+python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T222848Z_f0a671d7 --split test --top-k 20
 ```
 
 ### 2.4 Tests
@@ -55,9 +55,18 @@ Integration test:
 
 ### 3.1 Baseline and Threshold Selection
 
-The baseline run used the default configuration and selected threshold via sweep using the balanced-accuracy rule.
+The baseline run used the default configuration and selected threshold via a validation-split sweep using the balanced-accuracy rule.
 
-- baseline run id: run_20260326T203818Z_c9daa6e2
+Split roles used in this milestone workflow:
+
+- threshold selection split: validation
+- final reporting split: test
+
+Score direction used in this project:
+
+- higher similarity score means more likely same-person
+
+- baseline run id: run_20260326T222634Z_fea08c15
 - baseline config: configs/default.yaml
 - threshold rule used: max_balanced_accuracy
 
@@ -79,6 +88,18 @@ Each evaluation run writes tracked artifacts including:
 - outputs/runs/<run_id>/test_metrics.json
 - outputs/runs/<run_id>/val_metrics.json
 - outputs/runs/<run_id>/plots/*
+
+Evidence of tracked runs (at least 5) is available in:
+
+- outputs/run_summary.csv
+
+Representative run IDs present in run_summary.csv:
+
+- run_20260326T203408Z_33b8f1c6
+- run_20260326T203533Z_1f30a81a
+- run_20260326T203655Z_666b1de4
+- run_20260326T222634Z_fea08c15
+- run_20260326T222848Z_f0a671d7
 
 ### 3.3 Evaluation Modes
 
@@ -104,8 +125,13 @@ Implementation is in src/validation.py and is called from scripts/run_eval.py.
 
 Tests included in this milestone:
 
-- unit tests: tests/test_metrics.py
-- integration test: tests/test_integration_eval_pipeline.py
+- unit tests:
+  - tests/test_metrics.py
+  - tests/test_thresholding.py
+  - tests/test_validation.py
+  - tests/test_tracking.py
+- integration test:
+  - tests/test_integration_eval_pipeline.py
 
 ### 3.6 Data-Centric Improvement
 
@@ -137,8 +163,8 @@ Artifacts are produced per run under:
 
 Runs analyzed in this report:
 
-- outputs/runs/run_20260326T203818Z_c9daa6e2/error_analysis/test_error_slices_summary.json
-- outputs/runs/run_20260326T212540Z_86ba5024/error_analysis/test_error_slices_summary.json
+- outputs/runs/run_20260326T222634Z_fea08c15/error_analysis/test_error_slices_summary.json
+- outputs/runs/run_20260326T222848Z_f0a671d7/error_analysis/test_error_slices_summary.json
 
 ### 3.8 Baseline vs Improved Comparison Artifact
 
@@ -147,19 +173,26 @@ Comparison artifacts:
 - outputs/comparisons/baseline_vs_identity_cap.json
 - outputs/comparisons/baseline_vs_identity_cap.csv
 
+Required plot artifacts referenced in this report:
+
+- baseline ROC-style plot: outputs/runs/run_20260326T222634Z_fea08c15/plots/roc_curve.png
+- baseline confusion matrix at selected threshold (test): outputs/runs/run_20260326T222634Z_fea08c15/plots/confusion_matrix_test.png
+- improved ROC-style plot: outputs/runs/run_20260326T222848Z_f0a671d7/plots/roc_curve.png
+- improved confusion matrix at selected threshold (test): outputs/runs/run_20260326T222848Z_f0a671d7/plots/confusion_matrix_test.png
+
 ## 4. Quantitative Summary (Baseline -> Improved)
 
-- Selected threshold: 0.70 -> 0.75
-- Test accuracy: 0.5642 -> 0.5427 (delta -0.0215)
-- Val accuracy: 0.5753 -> 0.5783 (delta +0.0029)
-- False positives rate (test): 0.2518 -> 0.1530 (delta -0.0988)
-- False negatives rate (test): 0.1840 -> 0.3043 (delta +0.1203)
+- Selected threshold: 0.70 -> 0.70
+- Test accuracy: 0.5640 -> 0.5483 (delta -0.0157)
+- Val accuracy: 0.5753 -> 0.5708 (delta -0.0046)
+- False positives rate (test): 0.2518 -> 0.2518 (delta +0.0000)
+- False negatives rate (test): 0.1842 -> 0.1998 (delta +0.0157)
 
 Interpretation:
 
-- The improved policy is more conservative.
-- It reduces false accepts significantly, but increases false rejects.
-- This is a valid operating-point tradeoff and is reported transparently.
+- The improved policy with identity capping did not lower false positives at the current selected threshold.
+- In this run pair, test and validation accuracy decreased slightly, while false negatives increased.
+- This indicates the current cap setting likely needs another iteration (for example, cap value tuning and/or threshold rule constraints).
 
 ## 5. Required Narrative Elements
 
@@ -176,15 +209,25 @@ Interpretation:
 
 - False positives hypothesis:
   - different identities with similar pose/lighting are scored too high.
+  - representative examples (baseline run):
+    - data/lfw/images/Stanley_Tong/009245.jpg vs data/lfw/images/Tom_Curley/013148.jpg (score 0.9176, predicted same)
+    - data/lfw/images/Sergio_Castellitto/012182.jpg vs data/lfw/images/Fernando_Leon_de_Aranoa/006788.jpg (score 0.9102, predicted same)
+  - future improvement note:
+    - tighten false-accept control by selecting a threshold under an explicit FPR constraint.
 - False negatives hypothesis:
   - same-identity pairs with blur/occlusion/pose gap are scored too low.
+  - representative examples (baseline run):
+    - Colin_Powell/005138.jpg vs Colin_Powell/008948.jpg (score 0.4036, predicted different)
+    - Abid_Hamid_Mahmud_Al-Tikriti/006270.jpg vs Abid_Hamid_Mahmud_Al-Tikriti/012582.jpg (score 0.4310, predicted different)
+  - future improvement note:
+    - add deterministic quality filtering and quality-aware pair balancing for hard same-identity cases.
 
 ### 5.4 Iteration Lesson
 
 - Data balancing changes operating behavior, not just scalar accuracy.
 - The preferred variant depends on whether the use case prioritizes false-accept control or false-reject control.
 
-## 6. Remaining Submission Item
+## 6. Remaining Item
 
 - Milestone tag still pending:
   - create and push v0.2 on the final reproducible commit.

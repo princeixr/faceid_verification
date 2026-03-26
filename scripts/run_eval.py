@@ -18,6 +18,7 @@ reusable functions from `src/` so the logic is testable.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -34,59 +35,55 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.config import Config
 
 # ---------------------------------------------------------------------------
-# Imports: tracking & provenance  (✅ = implemented, ❌ = TODO stub)
+# Imports: tracking & provenance
 # ---------------------------------------------------------------------------
 from src.tracking import (
-    make_run_id,              # ✅ generates unique run id
-    get_timestamp,            # ✅ UTC timestamp string
-    get_git_commit_hash,      # ✅ current HEAD sha
-    create_run_dir,           # ✅ creates outputs/runs/<run_id>/
-    save_run_info,            # ❌ TODO: write run_info.json
-    append_run_summary,       # ❌ TODO: append row to outputs/run_summary.csv
+    make_run_id,
+    get_timestamp,
+    get_git_commit_hash,
+    create_run_dir,
+    save_run_info,
+    append_run_summary,
 )
 
 # ---------------------------------------------------------------------------
-# Imports: I/O utilities  (all ❌ TODO stubs)
+# Imports: I/O utilities
 # ---------------------------------------------------------------------------
 from src.io_utils import (
-    load_pairs_csv,           # ❌ TODO: load pair artifact CSV into memory
-    save_csv,                 # ❌ TODO: generic CSV writer
-    save_json,                # ❌ TODO: generic JSON writer
-    copy_config_snapshot,     # ❌ TODO: snapshot config YAML into run dir
+    save_csv,
+    save_json,
+    copy_config_snapshot,
 )
 
 # ---------------------------------------------------------------------------
-# Imports: validation  (all ❌ TODO stubs)
+# Imports: validation
 # ---------------------------------------------------------------------------
 from src.validation import (
-    validate_pairs_df,        # ❌ TODO: schema / missing-value checks
-    validate_image_paths,     # ❌ TODO: confirm image files exist
-    validate_threshold_config,# ❌ TODO: validate threshold mode / range
-    validate_scores_length,   # ❌ TODO: scores count == pairs count
-    check_split_integrity,    # ❌ TODO: no leakage / valid split labels
+    validate_pairs_df,
+    validate_image_paths,
+    validate_threshold_config,
+    validate_scores_length,
+    check_split_integrity,
 )
 
 # ---------------------------------------------------------------------------
-# Imports: scoring & evaluation  (all ❌ TODO stubs)
+# Imports: scoring & evaluation
 # ---------------------------------------------------------------------------
 from src.evaluation import compute_similarity_scores
 
 # ---------------------------------------------------------------------------
-# Imports: thresholding  (all ❌ TODO stubs)
+# Imports: thresholding
 # ---------------------------------------------------------------------------
-from src.thresholding import ( get_best_threshold,
+from src.thresholding import (
+    get_best_threshold,
     evaluate_at_threshold,
-    generate_threshold_grid,      # ❌ TODO: build list of thresholds from config
-    select_threshold,             # ❌ TODO: pick best threshold from sweep table
-    is_higher_score_same_person,  # ❌ TODO: score direction convention
 )
 
 # ---------------------------------------------------------------------------
-# Imports: plotting  (all ❌ TODO stubs)
+# Imports: plotting
 # ---------------------------------------------------------------------------
 from src.analysis import (
     analyze_metrics
-    # plot_roc_style_curve,     # ❌ TODO: ROC-style FPR vs TPR plot
 )
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
@@ -98,7 +95,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--mode",
         choices=["sweep", "fixed"],
         default="sweep",
-        help="Thresholding mode. 'sweep' selects threshold from train. 'fixed' uses a fixed threshold.",
+        help="Thresholding mode. 'sweep' selects threshold from validation. 'fixed' uses a fixed threshold.",
     )
     p.add_argument(
         "--fixed-threshold",
@@ -135,6 +132,19 @@ def print_run_summary(
     for k in sorted(metrics.keys()):
         print(f"    {k}: {metrics[k]}")
     print("====================\n")
+
+
+def build_pair_version_tag(out_root_abs: Path, pairs_dir: Path, pair_policy_file: str) -> str:
+    """Build a compact pair-policy version tag for run provenance."""
+    policy_path = out_root_abs / pairs_dir / pair_policy_file
+    if not policy_path.exists():
+        return "unknown"
+
+    try:
+        digest = hashlib.sha256(policy_path.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "unknown"
+    return f"{policy_path.name}:{digest}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -198,10 +208,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     out_root = Path(paths_cfg.get("out_root", "outputs"))
     out_root_abs = out_root if out_root.is_absolute() else (project_root / out_root)
     pairs_dir = Path(paths_cfg.get("pairs_dir", "pairs"))
+    pair_policy_file = files_cfg.get("pair_policy_json", "pair_policy.json")
+    pair_version = build_pair_version_tag(out_root_abs, pairs_dir, pair_policy_file)
 
     train_pair_path = out_root_abs / pairs_dir / files_cfg.get("train_pairs_csv", "train_pairs.csv")
     test_pair_path = out_root_abs / pairs_dir / files_cfg.get("test_pairs_csv", "test_pairs.csv")
     val_pair_path = out_root_abs / pairs_dir / files_cfg.get("val_pairs_csv", "val_pairs.csv")
+
+    run_info["pair_version"] = pair_version
+    save_run_info(run_dir / "run_info.json", run_info)
 
     #load pair records
     train_pair_df = get_pair_detail(train_pair_path)
@@ -232,10 +247,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     validate_scores_length(test_pair_df, test_similarity_scores["similarity_score"])
     validate_scores_length(val_pair_df, val_similarity_scores["similarity_score"])
 
-    # Stage 4: Threshold sweep  -OR-  fixed threshold
+    # Stage 4: Threshold sweep on validation  -OR-  fixed threshold
     if mode == "sweep":
-        selected_threshold, train_best_metrics, threshold_metrics = get_best_threshold(
-            train_similarity_scores,
+        selected_threshold, val_selection_metrics, threshold_metrics = get_best_threshold(
+            val_similarity_scores,
             config,
             rule=selection_rule,
         )
@@ -244,22 +259,32 @@ def main(argv: Optional[list[str]] = None) -> int:
             selected_threshold = float(fixed_threshold_arg)
         else:
             selected_threshold = float(config._config.get("similarity_threshold", {}).get("default", 0.7))
-        train_best_metrics = evaluate_at_threshold(train_similarity_scores, selected_threshold, config)
-        train_best_metrics["threshold"] = selected_threshold
-        threshold_metrics = [train_best_metrics]
+        val_selection_metrics = evaluate_at_threshold(val_similarity_scores, selected_threshold, config)
+        val_selection_metrics["threshold"] = selected_threshold
+        threshold_metrics = [val_selection_metrics]
     
     print_run_summary(
         run_id=run_id,
         run_dir=run_dir,
-        mode="threshold_sweep",
-        split="train",
+        mode="threshold_selection",
+        split="val",
         selected_threshold=selected_threshold,
-        metrics=train_best_metrics,
+        metrics=val_selection_metrics,
     )
 
-    # Stage 5: Evaluate at selected threshold on test & val
+    # Stage 5: Evaluate at selected threshold on train/test/val
+    train_metrics = evaluate_at_threshold(train_similarity_scores, selected_threshold, config)
     test_metrics = evaluate_at_threshold(test_similarity_scores, selected_threshold, config)
     val_metrics = evaluate_at_threshold(val_similarity_scores, selected_threshold, config)
+
+    print_run_summary(
+        run_id=run_id,
+        run_dir=run_dir,
+        mode="evaluate",
+        split="train",
+        selected_threshold=selected_threshold,
+        metrics=train_metrics,
+    )
 
     print_run_summary(
         run_id=run_id,
@@ -280,7 +305,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     # Stage 6: Persist the threshold sweep metrics
     save_json(threshold_metrics, run_dir / "threshold_metrics.json")
-    save_json(train_best_metrics, run_dir / "train_metrics.json")
+    save_json(train_metrics, run_dir / "train_metrics.json")
     save_json(test_metrics, run_dir / "test_metrics.json")
     save_json(val_metrics, run_dir / "val_metrics.json")
     save_csv(pd.DataFrame(threshold_metrics), run_dir / "threshold_metrics.csv")
@@ -291,7 +316,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     analyze_metrics(
         threshold_metrics=threshold_metrics,
         selected_threshold=selected_threshold,
-        train_metrics=train_best_metrics,
+        selection_metrics=val_selection_metrics,
+        sweep_split_label="validation",
+        train_metrics=train_metrics,
         test_metrics=test_metrics,
         val_metrics=val_metrics,
         run_dir=run_dir,
@@ -304,10 +331,12 @@ def main(argv: Optional[list[str]] = None) -> int:
             "timestamp": timestamp,
             "commit_hash": commit_hash,
             "config_path": str(config_path),
+            "pair_version": pair_version,
             "mode": mode,
             "selection_rule": selection_rule,
+            "fixed_threshold_arg": fixed_threshold_arg if fixed_threshold_arg is not None else "",
             "threshold": selected_threshold,
-            "train_accuracy": train_best_metrics.get("accuracy"),
+            "train_accuracy": train_metrics.get("accuracy"),
             "test_accuracy": test_metrics.get("accuracy"),
             "val_accuracy": val_metrics.get("accuracy"),
             "run_dir": str(run_dir),
@@ -316,25 +345,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     # print(train_similarity_scores.head())
     return 0
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Local helpers (TODO: implement each)
-# ═══════════════════════════════════════════════════════════════════════════
-
-# def filter_to_split(pairs_df: Any, split: str) -> Any:
-#     """Return only rows belonging to the requested `split` (train/val/test)."""
-#     raise NotImplementedError("TODO: implement filter_to_split()")
-
-
-# def save_sweep_table(sweep_df: Any, out_path: Path) -> None:
-#     """Persist threshold sweep results to CSV."""
-#     raise NotImplementedError("TODO: implement save_sweep_table()")
-
-
-# def save_predictions(predictions_df: Any, out_path: Path) -> None:
-#     """Persist predictions (y_true, score, y_pred, threshold, paths) to CSV."""
-#     raise NotImplementedError("TODO: implement save_predictions()")
 
 
 if __name__ == "__main__":

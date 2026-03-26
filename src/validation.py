@@ -14,7 +14,6 @@ import pandas as pd
 
 def validate_pairs_df(pairs_df: Any) -> None:
     """Validate pair schema, missing values, label format, and split values."""
-    # raise NotImplementedError("TODO: implement validate_pairs_df()")
     if not isinstance(pairs_df, pd.DataFrame):
         raise ValueError("pairs_df must be a pandas DataFrame")
     if not all(col in pairs_df.columns for col in ["left_path", "right_path", "label", "split"]):

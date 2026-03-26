@@ -21,7 +21,7 @@ The goal is to design and evaluate a reliable, well-engineered authentication se
 
 Milestone 1 builds the foundational pipeline for face verification: data ingestion from TensorFlow Datasets, deterministic pair generation for train/val/test splits, similarity scoring using cosine similarity and Euclidean distance, and performance benchmarking. The pipeline emphasizes reproducibility through fixed random seeds, deterministic file ordering, and identity-disjoint splits. This ensures consistent results across runs and enables reliable evaluation of similarity metrics.
 
-For a grader-focused Milestone 2 reproduction and results summary, see:
+For a Milestone 2 reproduction and results summary, see:
 
 * `reports/Milestone2_Report.md`
 
@@ -39,15 +39,18 @@ For a grader-focused Milestone 2 reproduction and results summary, see:
 
 ```bash
 git clone https://github.com/princeixr/FaceID_Verification.git
-cd facial_recognition
+cd FaceID_Verification
 ```
 
 ### 2. Environment Setup
 
 ```bash
 # Create virtual environment (optional but recommended)
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
+python -m venv .venv
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+# source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -59,16 +62,16 @@ Execute the three milestone commands in order:
 
 ```bash
 # 1. Ingest LFW dataset and create train/val/test splits
-python3 scripts/ingest_lfw.py
+python scripts/ingest_lfw.py
 
 # 2. Generate positive and negative pairs for each split
-python3 scripts/pair_lfw.py
+python scripts/pair_lfw.py
 
 # 3. Compute similarity scores (cosine similarity and Euclidean distance)
-python3 scripts/similarity_lfw.py
+python scripts/similarity_lfw.py
 
 # 4. Benchmark similarity computation performance
-python3 scripts/benchmark.py
+python scripts/benchmark.py
 ```
 
 All scripts automatically load configuration from `configs/default.yaml`.
@@ -76,6 +79,12 @@ All scripts automatically load configuration from `configs/default.yaml`.
 ### 4. Milestone 2 Evaluation (Tracked Runs)
 
 Use the evaluation runner for threshold selection and final reporting:
+
+Split roles used by `run_eval.py`:
+
+* Threshold selection is done on the validation split in sweep mode.
+* Final reporting is read from the held-out test split at the selected threshold.
+* Score direction is `higher-is-more-same` for cosine similarity.
 
 ```bash
 # Sweep mode (default rule: max_accuracy)
@@ -95,6 +104,25 @@ Threshold rule behavior:
 * If not provided, the default is `max_accuracy`.
 
 This means threshold policy is not hardcoded. You can explicitly choose the rule per run for fair, reproducible comparisons.
+
+### 4.1 Milestone 2 Quick Path
+
+If you want only the Milestone 2 workflow from a clean clone, run these commands in order:
+
+```bash
+python scripts/ingest_lfw.py
+python scripts/pair_lfw.py --config configs/default.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<baseline_run_id> --split test --top-k 20
+
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<improved_run_id> --split test --top-k 20
+```
+
+For additional context and exact artifact locations, see `reports/Milestone2_Report.md`.
 
 ### 5. Tests
 

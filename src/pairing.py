@@ -31,6 +31,12 @@ def generate_pairs(
     num_positive_pairs = config.pairs.num_positive_pairs
     num_negative_pairs = config.pairs.num_negative_pairs
     max_attempts_multiplier = config.pairs.max_attempts_multiplier
+    pairs_cfg = config._config.get("pairs", {})
+    identity_cap_enabled = bool(pairs_cfg.get("identity_cap_enabled", False))
+    max_pairs_per_identity = int(pairs_cfg.get("max_pairs_per_identity", 0))
+
+    if identity_cap_enabled and max_pairs_per_identity <= 0:
+        raise ValueError("pairs.max_pairs_per_identity must be > 0 when pairs.identity_cap_enabled is true")
     
     # Separate by split
     split_samples = defaultdict(lambda: defaultdict(list))
@@ -48,19 +54,29 @@ def generate_pairs(
         
         # Positive pairs (same identity)
         positive_pairs = []
-        for person in people_sorted:
+        for person_idx, person in enumerate(people_sorted):
             samples = split_samples[split][person]
             if len(samples) >= 2:
                 # Generate all possible pairs for this person in this split
                 indices = list(range(len(samples)))
+                person_positive_pairs = []
                 for i in range(len(indices)):
                     for j in range(i + 1, len(indices)):
-                        positive_pairs.append({
+                        person_positive_pairs.append({
                             "left_path": samples[i]["rel_path"],
                             "right_path": samples[j]["rel_path"],
                             "label": 1,
                             "split": split,
                         })
+
+                if identity_cap_enabled and len(person_positive_pairs) > max_pairs_per_identity:
+                    rng_cap = np.random.default_rng(
+                        seed + config.random.pair_positive_offset + (split_idx * 10000) + person_idx
+                    )
+                    capped_idx = rng_cap.permutation(len(person_positive_pairs))[:max_pairs_per_identity]
+                    person_positive_pairs = [person_positive_pairs[i] for i in capped_idx]
+
+                positive_pairs.extend(person_positive_pairs)
 
         available_positive_pairs = len(positive_pairs)
         if available_positive_pairs < num_positive_pairs:
@@ -85,11 +101,21 @@ def generate_pairs(
         else:
             # Use separate RNG for negative pairs (use config offset)
             rng_neg = np.random.default_rng(seed + config.random.pair_negative_offset + split_idx)
+            negative_identity_counts = defaultdict(int)
 
             attempts = 0
             max_attempts = num_negative_pairs * max_attempts_multiplier
             while len(negative_pairs_seen) < num_negative_pairs and attempts < max_attempts:
                 person1, person2 = rng_neg.choice(people_list, size=2, replace=False)
+
+                if identity_cap_enabled:
+                    if (
+                        negative_identity_counts[person1] >= max_pairs_per_identity
+                        or negative_identity_counts[person2] >= max_pairs_per_identity
+                    ):
+                        attempts += 1
+                        continue
+
                 # Get a random index from 0 to the length of the list
                 idx1 = rng_neg.integers(0, len(split_samples[split][person1]))
                 idx2 = rng_neg.integers(0, len(split_samples[split][person2]))
@@ -108,6 +134,9 @@ def generate_pairs(
                         "label": 0,
                         "split": split,
                     })
+                    if identity_cap_enabled:
+                        negative_identity_counts[person1] += 1
+                        negative_identity_counts[person2] += 1
                 attempts += 1
 
             if len(negative_pairs_list) < num_negative_pairs:

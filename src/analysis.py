@@ -75,7 +75,7 @@ def analyze_metrics(
     fig.tight_layout()
     fig.savefig(plots_dir / "roc_curve.png", dpi=150)
     plt.close(fig)
-    print(f"  ✅ Saved {plots_dir / 'roc_curve.png'}")
+    print(f"  Saved {plots_dir / 'roc_curve.png'}")
 
     # ── 2. Threshold vs metrics ───────────────────────────────────────
     metric_keys = ["accuracy", "balanced_accuracy", "precision", "recall", "f1_score"]
@@ -93,7 +93,7 @@ def analyze_metrics(
     fig.tight_layout()
     fig.savefig(plots_dir / "threshold_vs_metrics.png", dpi=150)
     plt.close(fig)
-    print(f"  ✅ Saved {plots_dir / 'threshold_vs_metrics.png'}")
+    print(f"  Saved {plots_dir / 'threshold_vs_metrics.png'}")
 
     # ── 3. Confusion matrices (one per split) ─────────────────────────
     splits = {"train": train_metrics, "test": test_metrics, "val": val_metrics}
@@ -123,6 +123,6 @@ def analyze_metrics(
         fig.tight_layout()
         fig.savefig(plots_dir / f"confusion_matrix_{split_name}.png", dpi=150)
         plt.close(fig)
-        print(f"  ✅ Saved {plots_dir / f'confusion_matrix_{split_name}.png'}")
+        print(f"  Saved {plots_dir / f'confusion_matrix_{split_name}.png'}")
 
     print(f"\n  All plots saved to {plots_dir}\n")

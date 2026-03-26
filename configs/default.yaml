@@ -47,6 +47,8 @@ pairs:
   num_negative_pairs: 3000  # Number of negative pairs per split
   policy: "identity_disjoint_verification"
   max_attempts_multiplier: 10  # Multiplier for max attempts when generating negative pairs
+  identity_cap_enabled: false  # Optional data-centric control to limit identity overrepresentation
+  max_pairs_per_identity: 250  # Max pair participation per identity when cap is enabled
   description: "Positive pairs: same identity within split. Negative pairs: different identities within split."
 
 # Embedding configuration

@@ -120,6 +120,26 @@ Artifacts are written under:
 * `outputs/runs/<run_id>/error_analysis/test_false_positives.csv`
 * `outputs/runs/<run_id>/error_analysis/test_false_negatives.csv`
 
+### 7. Data-Centric Improvement Workflow
+
+This repo includes one data-centric option to reduce identity overrepresentation during pair generation:
+
+* `pairs.identity_cap_enabled`
+* `pairs.max_pairs_per_identity`
+
+Use the dedicated config for the improved variant:
+
+```bash
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+```
+
+After running baseline and improved variants, compare artifacts in:
+
+* `outputs/comparisons/baseline_vs_identity_cap.json`
+* `outputs/comparisons/baseline_vs_identity_cap.csv`
+
 ## Outputs
 
 After running the pipeline, the following files are generated in `outputs/`:

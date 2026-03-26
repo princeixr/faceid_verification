@@ -80,6 +80,14 @@ class Config:
                 pairs["num_negative_pairs"] = int(pairs["num_negative_pairs"])
             if "max_attempts_multiplier" in pairs:
                 pairs["max_attempts_multiplier"] = int(pairs["max_attempts_multiplier"])
+            if "max_pairs_per_identity" in pairs:
+                pairs["max_pairs_per_identity"] = int(pairs["max_pairs_per_identity"])
+            if "identity_cap_enabled" in pairs:
+                raw = pairs["identity_cap_enabled"]
+                if isinstance(raw, str):
+                    pairs["identity_cap_enabled"] = raw.strip().lower() in {"1", "true", "yes", "on"}
+                else:
+                    pairs["identity_cap_enabled"] = bool(raw)
         
         # Convert embedding values
         if "embedding" in config_dict:

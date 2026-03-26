@@ -1,5 +1,6 @@
 import json
 import sys
+import argparse
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -9,9 +10,20 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.config import Config
 from src.pairing import load_samples_csv, generate_pairs, write_pairs_csv
 
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Generate deterministic face verification pairs.")
+    p.add_argument(
+        "--config",
+        default=str(PROJECT_ROOT / "configs" / "default.yaml"),
+        help="Path to config YAML/JSON file.",
+    )
+    return p.parse_args()
+
 def main():
+    args = parse_args()
     # Load config
-    config_path = PROJECT_ROOT / "configs" / "default.yaml"
+    config_path = Path(args.config).expanduser()
     config = Config.from_file(config_path)
     
     # Use config paths
@@ -37,6 +49,8 @@ def main():
         "num_positive_pairs": config.pairs.num_positive_pairs,
         "num_negative_pairs": config.pairs.num_negative_pairs,
         "pair_policy": config.pairs.policy,
+        "identity_cap_enabled": bool(getattr(config.pairs, "identity_cap_enabled", False)),
+        "max_pairs_per_identity": int(getattr(config.pairs, "max_pairs_per_identity", 0)),
         "description": config.pairs.description
     }
     policy_path = out_root / config.paths.pairs_dir / config.files.pair_policy_json

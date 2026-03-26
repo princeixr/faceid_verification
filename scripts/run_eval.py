@@ -90,10 +90,28 @@ from src.analysis import (
 )
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
-    """CLI: only --config is required. --note is optional (for run tracking later)."""
+    """CLI for tracked evaluation runs."""
     p = argparse.ArgumentParser(description="Run tracked evaluation for face verification.")
     p.add_argument("--config", required=True, help="Path to eval config (YAML/JSON).")
     p.add_argument("--note", default=None, help="Short note stored with run artifacts.")
+    p.add_argument(
+        "--mode",
+        choices=["sweep", "fixed"],
+        default="sweep",
+        help="Thresholding mode. 'sweep' selects threshold from train. 'fixed' uses a fixed threshold.",
+    )
+    p.add_argument(
+        "--fixed-threshold",
+        type=float,
+        default=None,
+        help="Threshold used when --mode fixed (defaults to config similarity_threshold.default).",
+    )
+    p.add_argument(
+        "--selection-rule",
+        choices=["max_accuracy", "max_balanced_accuracy", "max_f1"],
+        default="max_accuracy",
+        help="Selection rule used in sweep mode.",
+    )
     return p.parse_args(argv)
 
 def print_run_summary(
@@ -144,6 +162,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
     config_path = Path(args.config).expanduser()
     note = args.note
+    mode = args.mode
+    selection_rule = args.selection_rule
+    fixed_threshold_arg = args.fixed_threshold
 
     config = Config.from_file(config_path)
 
@@ -154,25 +175,33 @@ def main(argv: Optional[list[str]] = None) -> int:
     commit_hash = get_git_commit_hash()
     run_dir = create_run_dir(config, run_id)       # ✅
 
-    # TODO: implement copy_config_snapshot in src/io_utils.py
-    # copy_config_snapshot(config, run_dir / "config_used.yaml")
+    copy_config_snapshot(config, run_dir / "config_used.yaml")
 
     run_info = {
         "run_id": run_id,
         "timestamp": timestamp,
         "commit_hash": commit_hash,
         "config_path": str(config_path),
+        "mode": mode,
+        "selection_rule": selection_rule,
+        "fixed_threshold_arg": fixed_threshold_arg,
         "note": note,
     }
     save_run_info(run_dir / "run_info.json", run_info) #save the run infor into run_info.json
 
     # State 2: Load the image pairs (left_path, right_path, label (0,1), split (train, val, test))
 
-    # Use config paths
-    out_root = config.paths.out_root
-    train_pair_path = out_root / config.paths.pairs_dir / config.files.train_pairs_csv
-    test_pair_path = out_root / config.paths.pairs_dir / config.files.test_pairs_csv
-    val_pair_path = out_root / config.paths.pairs_dir / config.files.val_pairs_csv
+    # Use config paths from dict-style access for static-checker friendliness.
+    paths_cfg = config._config.get("paths", {})
+    files_cfg = config._config.get("files", {})
+    project_root = Path(paths_cfg.get("project_root", Path.cwd()))
+    out_root = Path(paths_cfg.get("out_root", "outputs"))
+    out_root_abs = out_root if out_root.is_absolute() else (project_root / out_root)
+    pairs_dir = Path(paths_cfg.get("pairs_dir", "pairs"))
+
+    train_pair_path = out_root_abs / pairs_dir / files_cfg.get("train_pairs_csv", "train_pairs.csv")
+    test_pair_path = out_root_abs / pairs_dir / files_cfg.get("test_pairs_csv", "test_pairs.csv")
+    val_pair_path = out_root_abs / pairs_dir / files_cfg.get("val_pairs_csv", "val_pairs.csv")
 
     #load pair records
     train_pair_df = get_pair_detail(train_pair_path)
@@ -180,9 +209,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     val_pair_df = get_pair_detail(val_pair_path)
 
     # Validate the Pairs with the schema and missing-value checks
-    # validate_pairs_df(train_pair_df)
-    # validate_pairs_df(test_pair_df)
-    # validate_pairs_df(val_pair_df)
+    train_pairs_pd = pd.DataFrame(train_pair_df)
+    test_pairs_pd = pd.DataFrame(test_pair_df)
+    val_pairs_pd = pd.DataFrame(val_pair_df)
+
+    validate_pairs_df(train_pairs_pd)
+    validate_pairs_df(test_pairs_pd)
+    validate_pairs_df(val_pairs_pd)
+    validate_image_paths(train_pairs_pd, config)
+    validate_image_paths(test_pairs_pd, config)
+    validate_image_paths(val_pairs_pd, config)
+    validate_threshold_config(config.similarity_threshold)
+    check_split_integrity(pd.concat([train_pairs_pd, test_pairs_pd, val_pairs_pd], ignore_index=True))
 
     # Stage 3: Compute the similarity scores
 
@@ -190,8 +228,25 @@ def main(argv: Optional[list[str]] = None) -> int:
     test_similarity_scores = pd.DataFrame(compute_similarity_scores(test_pair_df, config, "cosine"))
     val_similarity_scores = pd.DataFrame(compute_similarity_scores(val_pair_df, config, "cosine"))
 
+    validate_scores_length(train_pair_df, train_similarity_scores["similarity_score"])
+    validate_scores_length(test_pair_df, test_similarity_scores["similarity_score"])
+    validate_scores_length(val_pair_df, val_similarity_scores["similarity_score"])
+
     # Stage 4: Threshold sweep  -OR-  fixed threshold
-    selected_threshold, train_best_metrics, threshold_metrics = get_best_threshold(train_similarity_scores, config)
+    if mode == "sweep":
+        selected_threshold, train_best_metrics, threshold_metrics = get_best_threshold(
+            train_similarity_scores,
+            config,
+            rule=selection_rule,
+        )
+    else:
+        if fixed_threshold_arg is not None:
+            selected_threshold = float(fixed_threshold_arg)
+        else:
+            selected_threshold = float(config._config.get("similarity_threshold", {}).get("default", 0.7))
+        train_best_metrics = evaluate_at_threshold(train_similarity_scores, selected_threshold, config)
+        train_best_metrics["threshold"] = selected_threshold
+        threshold_metrics = [train_best_metrics]
     
     print_run_summary(
         run_id=run_id,
@@ -225,6 +280,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     # Stage 6: Persist the threshold sweep metrics
     save_json(threshold_metrics, run_dir / "threshold_metrics.json")
+    save_json(train_best_metrics, run_dir / "train_metrics.json")
+    save_json(test_metrics, run_dir / "test_metrics.json")
+    save_json(val_metrics, run_dir / "val_metrics.json")
+    save_csv(pd.DataFrame(threshold_metrics), run_dir / "threshold_metrics.csv")
+    save_csv(test_similarity_scores, run_dir / "test_predictions.csv")
+    save_csv(val_similarity_scores, run_dir / "val_predictions.csv")
 
     # Stage 7: Generate & save all plots (ROC, threshold-vs-metrics, confusion matrices)
     analyze_metrics(
@@ -234,6 +295,24 @@ def main(argv: Optional[list[str]] = None) -> int:
         test_metrics=test_metrics,
         val_metrics=val_metrics,
         run_dir=run_dir,
+    )
+
+    append_run_summary(
+        config,
+        {
+            "run_id": run_id,
+            "timestamp": timestamp,
+            "commit_hash": commit_hash,
+            "config_path": str(config_path),
+            "mode": mode,
+            "selection_rule": selection_rule,
+            "threshold": selected_threshold,
+            "train_accuracy": train_best_metrics.get("accuracy"),
+            "test_accuracy": test_metrics.get("accuracy"),
+            "val_accuracy": val_metrics.get("accuracy"),
+            "run_dir": str(run_dir),
+            "note": note or "",
+        },
     )
     # print(train_similarity_scores.head())
     return 0

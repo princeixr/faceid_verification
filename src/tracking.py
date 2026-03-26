@@ -14,6 +14,7 @@ from src.config import Config
 from datetime import datetime, timezone
 import uuid
 import json
+import csv
 
 def make_run_id() -> str:
     """Create a unique run identifier."""
@@ -83,5 +84,21 @@ def save_run_info(path: Path, metadata: dict[str, Any]) -> None:
 
 def append_run_summary(config: Config, row: dict[str, Any]) -> None:
     """Append one compact row to the master tracking file (e.g., outputs/run_summary.csv)."""
-    raise NotImplementedError("TODO: implement append_run_summary()")
+    paths_cfg = config._config.get("paths", {})
+    project_root = Path(paths_cfg.get("project_root", Path.cwd()))
+    out_root = Path(paths_cfg.get("out_root", "outputs"))
+    out_root_abs = out_root if out_root.is_absolute() else (project_root / out_root)
+
+    summary_path = out_root_abs / "run_summary.csv"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+
+    normalized = {k: (str(v) if isinstance(v, Path) else v) for k, v in row.items()}
+    fieldnames = list(normalized.keys())
+
+    write_header = (not summary_path.exists()) or summary_path.stat().st_size == 0
+    with summary_path.open("a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(normalized)
 

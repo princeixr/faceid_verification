@@ -9,16 +9,26 @@ from __future__ import annotations
 from typing import Any
 
 from src.config import Config
-
+import pandas as pd
 
 def validate_pairs_df(pairs_df: Any) -> None:
     """Validate pair schema, missing values, label format, and split values."""
-    raise NotImplementedError("TODO: implement validate_pairs_df()")
+    # raise NotImplementedError("TODO: implement validate_pairs_df()")
+    if not isinstance(pairs_df, pd.DataFrame):
+        raise ValueError("pairs_df must be a pandas DataFrame")
+    if not all(col in pairs_df.columns for col in ["left_path", "right_path", "label", "split"]):
+        raise ValueError("pairs_df must contain the columns: left_path, right_path, label, split")
+    if not all(pairs_df["label"].isin([0, 1])):
+        raise ValueError("label must be 0 or 1")
+    if not all(pairs_df["split"].isin(["train", "val", "test"])):
+        raise ValueError("split must be train, val, or test")
+
 
 
 def validate_image_paths(pairs_df: Any, config: Config) -> None:
     """Confirm referenced image paths exist (or are otherwise resolvable)."""
     raise NotImplementedError("TODO: implement validate_image_paths()")
+
 
 
 def validate_threshold_config(threshold_cfg: Any) -> None:

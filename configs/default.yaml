@@ -82,3 +82,9 @@ benchmark:
   num_pairs: 10000
   benchmark_dimension: 100
   tolerance: 1e-6
+
+# Similarity threshold configuration
+similarity_threshold:
+  range: [0.3, 0.95]
+  increment: 0.05
+  default: 0.7

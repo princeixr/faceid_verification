@@ -10,9 +10,9 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
-
+import pandas as pd
 from src.config import Config
-
+import json
 
 def load_pairs_csv(config: Config) -> Any:
     """

@@ -9,22 +9,29 @@ from __future__ import annotations
 from typing import Any
 
 from src.config import Config
+from src.similarity_score import get_cosine_similarity_batch, euclidean_distance_batch, build_embedding_batches
+# from src.io_utils import write_experiment_pairs_with_scores
 
 
-def compute_similarity_scores(pairs_df: Any, config: Config) -> Any:
+def compute_similarity_scores(pair_df: Any, config: Config, similarity_type: str) -> Any:
     """
-    Compute a score for each pair using the existing embedding + similarity pipeline.
-
-    Note: In your repo, milestone-1 scoring exists in `src/similarity_score.py` and
-    `scripts/similarity_lfw.py`. We'll fold that into this function later.
+    Compute similarity scores for a given pair of images.
     """
-    raise NotImplementedError("TODO: implement compute_similarity_scores()")
+    #create embedding batches 
+    pair_left, pair_right, pair_label = build_embedding_batches(pair_df, config)
+    #get cosine similarity using config epsilon
+    if similarity_type == "cosine":
+        scores = get_cosine_similarity_batch(pair_left, pair_right, config)
+    elif similarity_type == "euclidean":
+        scores = euclidean_distance_batch(pair_left, pair_right)
+    else:
+        raise ValueError(f"Invalid similarity type: {similarity_type}")
 
+    # Attach score to each dict in the list (works for List[Dict])
+    for i, row in enumerate(pair_df):
+        row["similarity_score"] = float(scores[i])
 
-def load_or_compute_scores(pairs_df: Any, config: Config) -> Any:
-    """Load saved scores if present; otherwise compute them."""
-    raise NotImplementedError("TODO: implement load_or_compute_scores()")
-
+    return pair_df
 
 def evaluate_at_threshold(pairs_df: Any, *, threshold: float, higher_means_same: bool) -> dict[str, Any]:
     """

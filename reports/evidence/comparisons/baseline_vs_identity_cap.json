@@ -1,0 +1,39 @@
+{
+  "baseline_run_id": "run_20260326T222634Z_fea08c15",
+  "improved_run_id": "run_20260326T222848Z_f0a671d7",
+  "change_description": "Enabled identity cap in pair generation (pairs.identity_cap_enabled=true, pairs.max_pairs_per_identity=120).",
+  "metrics": {
+    "selected_threshold": {
+      "baseline": 0.7,
+      "improved": 0.7,
+      "delta": 0.0
+    },
+    "train_accuracy": {
+      "baseline": 0.5448333333333333,
+      "improved": 0.5515,
+      "delta": 0.00666666666666671
+    },
+    "val_accuracy": {
+      "baseline": 0.5753333333333334,
+      "improved": 0.5707656612529002,
+      "delta": -0.004567672080433183
+    },
+    "test_accuracy": {
+      "baseline": 0.564,
+      "improved": 0.5483333333333333,
+      "delta": -0.015666666666666607
+    }
+  },
+  "error_slices_test": {
+    "false_positives_rate": {
+      "baseline": 0.25183333333333335,
+      "improved": 0.25183333333333335,
+      "delta": 0.0
+    },
+    "false_negatives_rate": {
+      "baseline": 0.18416666666666667,
+      "improved": 0.19983333333333334,
+      "delta": 0.015666666666666662
+    }
+  }
+}

@@ -21,6 +21,12 @@ The goal is to design and evaluate a reliable, well-engineered authentication se
 
 Milestone 1 builds the foundational pipeline for face verification: data ingestion from TensorFlow Datasets, deterministic pair generation for train/val/test splits, similarity scoring using cosine similarity and Euclidean distance, and performance benchmarking. The pipeline emphasizes reproducibility through fixed random seeds, deterministic file ordering, and identity-disjoint splits. This ensures consistent results across runs and enables reliable evaluation of similarity metrics.
 
+Milestone 2 adds tracked evaluation and data-centric iteration:
+
+* Baseline system: `configs/default.yaml` with threshold selected by validation sweep using `max_balanced_accuracy`.
+* Improved system: `configs/milestone2_identity_cap.yaml` enabling identity participation cap (`max_pairs_per_identity=120`).
+* Fair comparison policy: same split roles and same threshold-selection rule for both runs.
+
 For a Milestone 2 reproduction and results summary, see:
 
 * `reports/Milestone2_Report.md`
@@ -171,6 +177,68 @@ After running baseline and improved variants, compare artifacts in:
 
 * `outputs/comparisons/baseline_vs_identity_cap.json`
 * `outputs/comparisons/baseline_vs_identity_cap.csv`
+
+### 8. Report and Submission-Visible Artifacts
+
+Primary report:
+
+* `reports/Milestone2_Report.md`
+
+Submission-visible evidence copied under `reports/evidence/`:
+
+* Figures:
+	* `reports/evidence/figures/baseline_roc_curve.png`
+	* `reports/evidence/figures/baseline_confusion_matrix_test.png`
+	* `reports/evidence/figures/improved_roc_curve.png`
+	* `reports/evidence/figures/improved_confusion_matrix_test.png`
+* Comparison summaries:
+	* `reports/evidence/comparisons/baseline_vs_identity_cap.json`
+	* `reports/evidence/comparisons/baseline_vs_identity_cap.csv`
+
+### 9. Reproduce Selected Threshold and Main Reported Result
+
+Threshold policy used for reported results:
+
+* Selection split: validation
+* Rule: `max_balanced_accuracy`
+* Score direction: `higher-is-more-same` (cosine similarity)
+* Selected threshold in the current reported runs: `0.70` (baseline and improved)
+
+Main reported comparison from current tracked runs:
+
+* Baseline test accuracy: `0.5640`
+* Improved test accuracy: `0.5483`
+* Baseline test FPR/FNR: `0.2518 / 0.1842`
+* Improved test FPR/FNR: `0.2518 / 0.1998`
+
+These values are traceable in `outputs/run_summary.csv` and summarized in `reports/Milestone2_Report.md`.
+
+### 10. Clean-Clone Reproducibility Check (Before Tagging)
+
+From a fresh clone, run this exact sequence:
+
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+python scripts/ingest_lfw.py
+python scripts/pair_lfw.py --config configs/default.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
+
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+
+python -m pytest -q tests
+```
+
+Confirm after running:
+
+* `outputs/run_summary.csv` contains both new run rows.
+* Each run folder under `outputs/runs/<run_id>/` has `run_info.json`, `threshold_metrics.csv`, `test_metrics.json`, and `plots/confusion_matrix_test.png`.
+* The selected threshold in both runs is `0.70` for the currently reported result path.
 
 ## Outputs
 

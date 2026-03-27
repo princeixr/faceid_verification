@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This report is organized to mirror the milestone document requirements and keep the workflow easy to follow.
+This is the Milestone 2 evaluation report for the face verification pipeline. It documents the baseline system, the threshold-selection process on validation data, the data-centric iteration (identity participation cap), and the resulting error behavior on the held-out test split.
 
 ## 2. Reproduction Commands (Copy-Paste)
 
@@ -172,15 +172,36 @@ Runs analyzed in this report:
 
 Comparison artifacts:
 
-- outputs/comparisons/baseline_vs_identity_cap.json
-- outputs/comparisons/baseline_vs_identity_cap.csv
+- reports/evidence/comparisons/baseline_vs_identity_cap.json
+- reports/evidence/comparisons/baseline_vs_identity_cap.csv
 
 Required plot artifacts referenced in this report:
 
-- baseline ROC-style plot: outputs/runs/run_20260326T222634Z_fea08c15/plots/roc_curve.png
-- baseline confusion matrix at selected threshold (test): outputs/runs/run_20260326T222634Z_fea08c15/plots/confusion_matrix_test.png
-- improved ROC-style plot: outputs/runs/run_20260326T222848Z_f0a671d7/plots/roc_curve.png
-- improved confusion matrix at selected threshold (test): outputs/runs/run_20260326T222848Z_f0a671d7/plots/confusion_matrix_test.png
+- baseline ROC-style plot: reports/evidence/figures/baseline_roc_curve.png
+- baseline confusion matrix at selected threshold (test): reports/evidence/figures/baseline_confusion_matrix_test.png
+- improved ROC-style plot: reports/evidence/figures/improved_roc_curve.png
+- improved confusion matrix at selected threshold (test): reports/evidence/figures/improved_confusion_matrix_test.png
+
+All files below are submission-visible copies stored under reports/evidence/ so they can be reviewed directly from this report.
+
+Embedded key figures:
+
+Baseline ROC-style threshold sweep:
+
+![Baseline ROC-style sweep](evidence/figures/baseline_roc_curve.png)
+
+
+Baseline confusion matrix at selected threshold (test, theta=0.70):
+
+![Baseline confusion matrix test](evidence/figures/baseline_confusion_matrix_test.png)
+
+Improved ROC-style threshold sweep:
+
+![Improved ROC-style sweep](evidence/figures/improved_roc_curve.png)
+
+Improved confusion matrix at selected threshold (test, theta=0.70):
+
+![Improved confusion matrix test](evidence/figures/improved_confusion_matrix_test.png)
 
 ## 4. Quantitative Summary (Baseline -> Improved)
 
@@ -210,6 +231,8 @@ Interpretation:
 ### 5.3 Two Error Slices + Hypotheses
 
 - False positives hypothesis:
+  - slice definition: different-identity pairs predicted as same (label=0, predicted=1).
+  - slice size (baseline test): 1511 / 6000 (25.18%).
   - different identities with similar pose/lighting are scored too high.
   - representative examples (baseline run):
     - data/lfw/images/Stanley_Tong/009245.jpg vs data/lfw/images/Tom_Curley/013148.jpg (score 0.9176, predicted same)
@@ -217,6 +240,8 @@ Interpretation:
   - future improvement note:
     - tighten false-accept control by selecting a threshold under an explicit FPR constraint.
 - False negatives hypothesis:
+  - slice definition: same-identity pairs predicted as different (label=1, predicted=0).
+  - slice size (baseline test): 1105 / 6000 (18.42%).
   - same-identity pairs with blur/occlusion/pose gap are scored too low.
   - representative examples (baseline run):
     - Colin_Powell/005138.jpg vs Colin_Powell/008948.jpg (score 0.4036, predicted different)

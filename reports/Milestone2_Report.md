@@ -21,7 +21,7 @@ python scripts/ingest_lfw.py
 python scripts/pair_lfw.py --config configs/default.yaml
 python scripts/similarity_lfw.py
 python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
-python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T222634Z_fea08c15 --split test --top-k 20
+python scripts/run_error_analysis.py --run-dir outputs/runs/<baseline_run_id> --split test --top-k 20
 ```
 
 ### 2.3 Data-Centric Improved Pipeline
@@ -30,8 +30,10 @@ python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T222634Z
 python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
 python scripts/similarity_lfw.py
 python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
-python scripts/run_error_analysis.py --run-dir outputs/runs/run_20260326T222848Z_f0a671d7 --split test --top-k 20
+python scripts/run_error_analysis.py --run-dir outputs/runs/<improved_run_id> --split test --top-k 20
 ```
+
+Use the run_id printed by `run_eval.py` for `<baseline_run_id>` and `<improved_run_id>`.
 
 ### 2.4 Tests
 

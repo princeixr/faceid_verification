@@ -5,3 +5,6 @@ tensorflow-datasets
 numpy
 pillow
 pyyaml
+pandas
+matplotlib
+pytest

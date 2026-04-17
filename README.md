@@ -27,6 +27,18 @@ Milestone 2 adds tracked evaluation and data-centric iteration:
 * Improved system: `configs/milestone2_identity_cap.yaml` enabling identity participation cap (`max_pairs_per_identity=120`).
 * Fair comparison policy: same split roles and same threshold-selection rule for both runs.
 
+Milestone 3 now adds an explicit embedding stage and pair-level inference helpers:
+
+* Embedding stage: `src/embedding.py`
+* Pair-level inference helper: `src/inference.py`
+* Pair CLI: `scripts/infer_pair.py`
+* Local load test: `scripts/load_test.py`
+* Embedding preprocessing and dimensionality are documented in `configs/default.yaml`
+
+The current Milestone 3 embedding path is a deterministic, local baseline that is
+explicitly separated from similarity scoring so it can be swapped later for a
+heavier pretrained face model without changing the rest of the pipeline.
+
 For a Milestone 2 reproduction and results summary, see:
 
 * `reports/Milestone2_Report.md`
@@ -34,8 +46,10 @@ For a Milestone 2 reproduction and results summary, see:
 ## Repo Layout
 
 * **`src/`**: Core modules (`config.py`, `ingestion.py`, `pairing.py`, `similarity_score.py`)
-* **`scripts/`**: Executable scripts (`ingest_lfw.py`, `pair_lfw.py`, `similarity_lfw.py`, `benchmark.py`)
+* **`src/`**: Core modules (`config.py`, `embedding.py`, `inference.py`, `ingestion.py`, `pairing.py`, `similarity_score.py`)
+* **`scripts/`**: Executable scripts (`ingest_lfw.py`, `pair_lfw.py`, `similarity_lfw.py`, `benchmark.py`, `infer_pair.py`, `load_test.py`)
 * **`configs/`**: Configuration files (`default.yaml` with all pipeline parameters)
+* **`Dockerfile`**: Container build for the pair-level inference entrypoint
 * **`outputs/`**: Generated outputs (manifests, pairs, similarity scores) - **ignored by git**
 * **`data/`**: Downloaded LFW dataset images - **ignored by git**
 

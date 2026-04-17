@@ -1,3 +1,8 @@
+"""Run one face pair through the Milestone 3 inference path.
+
+This script is the CLI entrypoint for single-pair verification.
+"""
+
 from __future__ import annotations
 
 import argparse

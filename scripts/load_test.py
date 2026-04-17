@@ -1,3 +1,8 @@
+"""Benchmark pair-level inference under repeated local concurrency.
+
+This script reports throughput and latency statistics for the verifier.
+"""
+
 from __future__ import annotations
 
 import argparse

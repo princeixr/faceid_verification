@@ -56,6 +56,10 @@ embedding:
   dimension: 100  # Embedding dimension (D)
   normalize: true  # Whether to normalize pixel values to [0, 1]
   normalization_value: 255.0  # Value to divide by for normalization
+  preprocess_size: [64, 64]  # Resize before feature extraction
+  spatial_size: [32, 32]  # Size used for local statistics and frequency features
+  grid_size: [4, 4]  # Spatial pooling grid for block statistics
+  frequency_block: [8, 8]  # Low-frequency spectrum block used in the embedding
 
 # Similarity computation configuration
 similarity:
@@ -90,3 +94,8 @@ similarity_threshold:
   range: [0.3, 0.95]
   increment: 0.05
   default: 0.7
+
+# Confidence computation configuration
+confidence:
+  method: "logistic_margin"  # confidence = 1 / (1 + exp(-sharpness * margin))
+  sharpness: 10.0  # Larger values produce steeper confidence transitions near threshold

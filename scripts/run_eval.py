@@ -262,6 +262,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         val_selection_metrics = evaluate_at_threshold(val_similarity_scores, selected_threshold, config)
         val_selection_metrics["threshold"] = selected_threshold
         threshold_metrics = [val_selection_metrics]
+
+    run_info["selected_threshold"] = float(selected_threshold)
+    run_info["selection_split"] = "val"
+    run_info["selection_rule"] = selection_rule
+    save_run_info(run_dir / "run_info.json", run_info)
     
     print_run_summary(
         run_id=run_id,

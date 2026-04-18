@@ -57,3 +57,15 @@ def test_infer_pair_returns_pair_level_fields(tmp_path: Path) -> None:
     assert isinstance(result["decision"], int)
     assert 0.0 <= result["confidence"] <= 1.0
     assert result["latency_ms"] >= 0.0
+    assert isinstance(result["stage_latency_ms"], dict)
+    expected_stages = {
+        "preprocessing",
+        "embedding_generation",
+        "similarity_scoring",
+        "threshold_decision",
+        "confidence_computation",
+        "total",
+    }
+    assert expected_stages.issubset(set(result["stage_latency_ms"].keys()))
+    for key in expected_stages:
+        assert float(result["stage_latency_ms"][key]) >= 0.0

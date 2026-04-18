@@ -39,6 +39,61 @@ The current Milestone 3 embedding path is a deterministic, local baseline that i
 explicitly separated from similarity scoring so it can be swapped later for a
 heavier pretrained face model without changing the rest of the pipeline.
 
+### Milestone 3 Stage Separation
+
+The pair-level inference path keeps these stages explicit in code and output:
+
+* preprocessing
+* embedding generation
+* similarity scoring
+* threshold decision
+* confidence computation
+* latency measurement
+
+Implementation points:
+
+* stage functions: `src/inference.py`
+* embedding from preprocessed arrays: `src/embedding.py`
+* per-stage latency fields in CLI output: `scripts/infer_pair.py`
+
+### Milestone 3 CLI Inference Path
+
+The default Milestone 3 interface is a CLI in `scripts/infer_pair.py`.
+
+Single-pair mode:
+
+```bash
+python scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Aaron_Eckhart/000001.jpg --right-path data/lfw/images/Aaron_Eckhart/000002.jpg
+```
+
+Batch-file mode (CSV with `left_path,right_path` and optional `pair_id`):
+
+```bash
+python scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv
+```
+
+For each pair, CLI output includes:
+
+* pair identifier (`pair_id`) and input paths
+* similarity score
+* threshold used for decision
+* binary decision
+* calibrated confidence
+* latency for that inference
+
+### Milestone 3 Threshold Selection
+
+The Milestone 3 embedding-based system currently uses the following operating
+threshold, selected on the validation split with the same sweep discipline used
+in Milestone 2:
+
+* selected threshold: `0.30`
+* selection rule: `max_balanced_accuracy`
+* selection split: `val`
+* recorded in: `outputs/runs/run_20260417T160805Z_6b612ae4/run_info.json`
+
+The selection is not tuned on the test split.
+
 For a Milestone 2 reproduction and results summary, see:
 
 * `reports/Milestone2_Report.md`

@@ -105,26 +105,21 @@ def _frequency_features(gray_image: np.ndarray, block_size: Tuple[int, int]) -> 
     return features
 
 
-def build_face_embedding(image_path: str, config: Config, dimension: Optional[int] = None) -> np.ndarray:
-    """Create a deterministic embedding vector for a single face image.
-
-    The embedding is composed of low-frequency image-spectrum features plus
-    coarse block statistics. This keeps the representation compact and
-    reproducible while making the embedding stage explicit in the codebase.
-    """
-
+def build_face_embedding_from_preprocessed(
+    preprocessed_image: np.ndarray,
+    config: Config,
+    dimension: Optional[int] = None,
+) -> np.ndarray:
+    """Create a deterministic embedding from a preprocessed RGB image array."""
     embedding_cfg = _embedding_section(config)
     if dimension is None:
         dimension = int(embedding_cfg.get("dimension", config.embedding.dimension))
 
-    preprocess_size = _as_tuple(embedding_cfg.get("preprocess_size"), fallback=(64, 64))
     spatial_size = _as_tuple(embedding_cfg.get("spatial_size"), fallback=(32, 32))
     grid_size = _as_tuple(embedding_cfg.get("grid_size"), fallback=(4, 4))
     frequency_block = _as_tuple(embedding_cfg.get("frequency_block"), fallback=(8, 8))
 
-    image = load_face_image(image_path, config, size=preprocess_size)
-    gray = np.dot(image, np.asarray([0.299, 0.587, 0.114], dtype=np.float32))
-
+    gray = np.dot(preprocessed_image, np.asarray([0.299, 0.587, 0.114], dtype=np.float32))
     gray_image = Image.fromarray(np.clip(gray * 255.0, 0.0, 255.0).astype(np.uint8), mode="L")
     gray_small = np.asarray(gray_image.resize(spatial_size, _RESAMPLE_BILINEAR), dtype=np.float32) / 255.0
 
@@ -142,6 +137,23 @@ def build_face_embedding(image_path: str, config: Config, dimension: Optional[in
 
     raw_embedding = np.concatenate([frequency_features, block_features, global_features]).astype(np.float32)
     return _fit_dimension(raw_embedding, int(dimension))
+
+
+def build_face_embedding(image_path: str, config: Config, dimension: Optional[int] = None) -> np.ndarray:
+    """Create a deterministic embedding vector for a single face image.
+
+    The embedding is composed of low-frequency image-spectrum features plus
+    coarse block statistics. This keeps the representation compact and
+    reproducible while making the embedding stage explicit in the codebase.
+    """
+
+    embedding_cfg = _embedding_section(config)
+    if dimension is None:
+        dimension = int(embedding_cfg.get("dimension", config.embedding.dimension))
+
+    preprocess_size = _as_tuple(embedding_cfg.get("preprocess_size"), fallback=(64, 64))
+    image = load_face_image(image_path, config, size=preprocess_size)
+    return build_face_embedding_from_preprocessed(image, config, dimension=dimension)
 
 
 def build_face_embedding_batches(pairs: Iterable[Dict[str, Any]], config: Config, dimension: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

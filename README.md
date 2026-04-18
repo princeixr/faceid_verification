@@ -1,419 +1,269 @@
-## **FaceID_Verification System**
+# FaceID_Verification System
 
-This project implements an end-to-end face verification system inspired by FaceID-style authentication workflows. Given two facial images, the system determines whether they belong to the same individual and outputs:
+End-to-end face verification pipeline. The repo covers deterministic data ingestion, pair generation, tracked evaluation, an embedding-based Milestone 3 inference path, Docker packaging, and a local load test.
 
-* A similarity score between the two face embeddings
-* A calibrated confidence score for the match decision
-* A binary verification result (same identity / different identity)
-* Basic latency measurements for performance analysis
+## What This Repo Produces
 
-The focus of this project is systems-oriented engineering rather than model accuracy alone. Emphasis is placed on:
+The system outputs:
 
-* Reproducible experimentation and evaluation
-* Performance-aware implementation and latency tracking
-* Proper score calibration and threshold selection
-* Clean, modular architecture
-* Production-minded packaging and deployment readiness
-
-The goal is to design and evaluate a reliable, well-engineered authentication service that reflects real-world identity verification constraints and best practices.
-
-## Project Overview
-
-Milestone 1 builds the foundational pipeline for face verification: data ingestion from TensorFlow Datasets, deterministic pair generation for train/val/test splits, similarity scoring using cosine similarity and Euclidean distance, and performance benchmarking. The pipeline emphasizes reproducibility through fixed random seeds, deterministic file ordering, and identity-disjoint splits. This ensures consistent results across runs and enables reliable evaluation of similarity metrics.
-
-Milestone 2 adds tracked evaluation and data-centric iteration:
-
-* Baseline system: `configs/default.yaml` with threshold selected by validation sweep using `max_balanced_accuracy`.
-* Improved system: `configs/milestone2_identity_cap.yaml` enabling identity participation cap (`max_pairs_per_identity=120`).
-* Fair comparison policy: same split roles and same threshold-selection rule for both runs.
-
-Milestone 3 now adds an explicit embedding stage and pair-level inference helpers:
-
-* Embedding stage: `src/embedding.py`
-* Pair-level inference helper: `src/inference.py`
-* Pair CLI: `scripts/infer_pair.py`
-* Local load test: `scripts/load_test.py`
-* Embedding preprocessing and dimensionality are documented in `configs/default.yaml`
-
-The current Milestone 3 embedding path is a deterministic, local baseline that is
-explicitly separated from similarity scoring so it can be swapped later for a
-heavier pretrained face model without changing the rest of the pipeline.
-
-### Milestone 3 Stage Separation
-
-The pair-level inference path keeps these stages explicit in code and output:
-
-* preprocessing
-* embedding generation
-* similarity scoring
-* threshold decision
-* confidence computation
-* latency measurement
-
-Implementation points:
-
-* stage functions: `src/inference.py`
-* embedding from preprocessed arrays: `src/embedding.py`
-* per-stage latency fields in CLI output: `scripts/infer_pair.py`
-
-### Milestone 3 CLI Inference Path
-
-The default Milestone 3 interface is a CLI in `scripts/infer_pair.py`.
-
-Single-pair mode:
-
-```bash
-python scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Aaron_Eckhart/000001.jpg --right-path data/lfw/images/Aaron_Eckhart/000002.jpg
-```
-
-Batch-file mode (CSV with `left_path,right_path` and optional `pair_id`):
-
-```bash
-python scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv
-```
-
-For each pair, CLI output includes:
-
-* pair identifier (`pair_id`) and input paths
 * similarity score
-* threshold used for decision
 * binary decision
 * calibrated confidence
-* latency for that inference
+* latency for each inference
+* tracked run artifacts for evaluation and reproducibility
 
-### Milestone 3 Confidence Definition
+## Getting Started
 
-Confidence is computed with a documented, reproducible rule from score margin
-relative to the operating threshold.
-
-Rule used:
-
-* method: `logistic_margin`
-* margin (higher-is-same): `margin = similarity_score - threshold`
-* margin (lower-is-same): `margin = threshold - similarity_score`
-* confidence transform: `confidence = 1 / (1 + exp(-sharpness * margin))`
-* default sharpness: `10.0` from `configs/default.yaml` under `confidence.sharpness`
-
-Output range and interpretation:
-
-* range is `(0, 1)`
-* values near `0.5` indicate low decision margin near threshold
-* values closer to `1.0` indicate stronger evidence for the predicted class under
-	the current threshold and score direction
-
-This is a calibrated confidence proxy for Milestone 3; it is deterministic and
-reproducible for the same inputs, threshold, and config.
-
-### Milestone 3 Docker Packaging
-
-Build image from repository root (`FaceID_Verification`):
+Clone the repo and enter the project directory:
 
 ```bash
-docker build -t faceid-verification:m3 .
+git clone "https://github.com/princeixr/FaceID_Verification"
+cd FaceID_Verification
 ```
 
-Smoke test that CLI runs inside container:
+Create the environment and install dependencies:
 
 ```bash
-docker run --rm faceid-verification:m3 --help
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-Run single-pair inference inside container using repository files mounted at
-`/app`:
+## How to Run
+
+If you want the full project flow, use this order:
+
+1. Start with Milestone 1 to build the baseline data and evaluation pipeline.
+2. Run Milestone 2 to compare the baseline with the improved pair-generation setup.
+3. Run Milestone 3 to use the explicit embedding inference path, CLI, Docker, and load test.
+4. Inspect the outputs under `outputs/` for run metadata, thresholds, and summaries.
+
+## Milestones
+
+Milestone 1 established the baseline pipeline: dataset ingestion, pair generation, similarity scoring, tracked evaluation, and the first saved run artifacts.
+
+Milestone 2 extended that baseline with the identity-cap pair-generation variant, threshold selection, and error analysis for comparison.
+
+Milestone 3 turned that pipeline into a deployable inference system: explicit embedding, separate inference stages, CLI entrypoint, confidence reporting, Docker packaging, and load testing.
+
+## Milestone 1 Pipeline
+
+This is the base workflow that everything else builds on:
 
 ```bash
-docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json
+python scripts/ingest_lfw.py
+python scripts/pair_lfw.py --config configs/default.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
 ```
 
-Run batch inference from a pair CSV:
+The command sequence above reproduces the tracked baseline pipeline and writes the core run artifacts under `outputs/runs/`.
+
+## Milestone 2 Evaluation
+
+Milestone 2 keeps the Milestone 1 pipeline and adds the improved pair-generation variant for comparison. Start from the Milestone 1 pipeline above, then run the identity-cap pair-generation variant below.
+
+Baseline vs data-centric improvement:
+
+* Baseline uses `configs/default.yaml` for pair generation and evaluation.
+* Data-centric improvement uses `configs/milestone2_identity_cap.yaml` to cap identity contribution in pair sampling and reduce dominance by heavily represented identities.
+* Both runs use the same threshold sweep rule (`max_balanced_accuracy`) so comparisons stay fair and reproducible.
+
+Improved pair-generation variant:
 
 ```bash
-docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --output-format json
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
 ```
 
-Note: `data/` and `outputs/` are intentionally excluded from image build context
-via `.dockerignore`, so runtime inference commands mount the working directory
-to provide local datasets and pair files.
+Milestone 2 reproducible command block (environment, pair generation, evaluation, run logging, tests):
 
-### Milestone 3 Threshold Selection
+```bash
+python scripts/pair_lfw.py --config configs/default.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
 
-The Milestone 3 embedding-based system currently uses the following operating
-threshold, selected on the validation split with the same sweep discipline used
-in Milestone 2:
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
+pytest tests/test_metrics.py tests/test_thresholding.py tests/test_tracking.py tests/test_validation.py tests/test_integration_eval_pipeline.py
+```
+
+Milestone 2 report and artifacts:
+
+* Report: `reports/Milestone2_Report.md`
+* Comparison outputs: `outputs/comparisons/baseline_vs_identity_cap.csv` and `outputs/comparisons/baseline_vs_identity_cap.json`
+* Pair manifests: `outputs/manifests/lfw_manifest.json` and `outputs/manifests/lfw_samples.csv`
+* Pair files: `outputs/pairs/train_pairs.csv`, `outputs/pairs/val_pairs.csv`, and `outputs/pairs/test_pairs.csv`
+* Scored pairs: `outputs/similarity_score/train_pairs_scored.csv`, `outputs/similarity_score/val_pairs_scored.csv`, and `outputs/similarity_score/test_pairs_scored.csv`
+* Run tracking: `outputs/run_summary.csv` and `outputs/runs/<run_id>/run_info.json`
+
+Notes for reproducing selected threshold and main Milestone 2 result:
+
+* Keep `--mode sweep --selection-rule max_balanced_accuracy` unchanged for both baseline and improved runs.
+* Read each run's selected threshold and split metadata from `outputs/runs/<run_id>/run_info.json`.
+* Use `outputs/comparisons/baseline_vs_identity_cap.csv` as the primary baseline-vs-improvement summary table referenced by the report.
+
+## Milestone 3 Inference
+
+### CLI
+
+Single pair:
+
+```bash
+python scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json --output-json outputs/cli_test_infer_pair.json
+```
+
+Batch CSV:
+
+```bash
+python scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --output-format json
+```
+
+The CLI prints:
+
+* pair identifier and input paths
+* similarity score
+* threshold
+* binary decision
+* calibrated confidence
+* latency and per-stage latency breakdown
+
+### Confidence
+
+Confidence uses a deterministic logistic-margin rule:
+
+* `margin = similarity_score - threshold` when higher scores mean same identity
+* `margin = threshold - similarity_score` when lower scores mean same identity
+* `confidence = 1 / (1 + exp(-sharpness * margin))`
+* default `sharpness = 10.0`
+
+Range and interpretation:
+
+* range: `(0, 1)`
+* around `0.5`: near the decision boundary
+* near `1.0`: stronger support for the predicted class
+
+### Threshold
+
+The current Milestone 3 operating threshold is selected on validation with the same sweep discipline used in Milestone 2.
 
 * selected threshold: `0.30`
 * selection rule: `max_balanced_accuracy`
 * selection split: `val`
 * recorded in: `outputs/runs/run_20260417T160805Z_6b612ae4/run_info.json`
 
-The selection is not tuned on the test split.
+### Docker
 
-For a Milestone 2 reproduction and results summary, see:
+Build:
 
-* `reports/Milestone2_Report.md`
+```bash
+docker build -t faceid-verification:m3 .
+```
+
+Smoke test:
+
+```bash
+docker run --rm faceid-verification:m3 --help
+```
+
+Single pair inside container:
+
+```bash
+docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json
+```
+
+Batch CSV inside container:
+
+```bash
+docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --output-format json
+```
+
+The image excludes `data/` and `outputs/` through `.dockerignore`, so mount the working directory when you run inference in the container.
+
+### Load Test
+
+```bash
+python scripts/load_test.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --workers 4 --repeat 2 --output-json outputs/load_test_summary.json
+```
+
+The load-test summary includes:
+
+* total requests processed
+* successful requests
+* failed requests
+* total wall-clock time
+* throughput in requests/sec
+* latency distribution, including p95
+* per-request records with latency or error text
+
+### Tests
+
+```bash
+pytest tests/test_embedding.py tests/test_inference.py tests/test_thresholding.py tests/test_metrics.py tests/test_tracking.py tests/test_validation.py tests/test_integration_eval_pipeline.py
+```
+
+### Milestone 3 Artifacts
+
+* CLI sample output: `outputs/cli_test_infer_pair.json`
+* Load-test summary: `outputs/load_test_summary.json`
+* Selected-threshold metadata: `outputs/runs/run_20260417T160805Z_6b612ae4/run_info.json`
+* Threshold sweep metrics: `outputs/runs/<run_id>/threshold_metrics.csv`
+
+## Reproducibility Checklist
+
+Use this command sequence from a clean workspace to reproduce the full Milestone 1 to Milestone 3 flow:
+
+```bash
+git clone "https://github.com/princeixr/FaceID_Verification"
+cd FaceID_Verification
+
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+python scripts/ingest_lfw.py
+python scripts/pair_lfw.py --config configs/default.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
+
+python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
+python scripts/similarity_lfw.py
+python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
+python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
+
+docker build -t faceid-verification:m3 .
+docker run --rm faceid-verification:m3 --help
+
+python scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json --output-json outputs/cli_test_infer_pair.json
+python scripts/load_test.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --workers 2 --repeat 1 --output-json outputs/load_test_summary.json
+```
+
+Artifacts:
+
+* `outputs/cli_test_infer_pair.json` - sample CLI result
+* `outputs/load_test_summary.json` - load-test summary and latency distribution
+* `outputs/run_summary.csv` - tracked evaluation history
+* `outputs/runs/<run_id>/run_info.json` - run metadata, including selected threshold
+* `outputs/runs/<run_id>/threshold_metrics.csv` - validation sweep summary
 
 ## Repo Layout
 
-* **`src/`**: Core modules (`config.py`, `ingestion.py`, `pairing.py`, `similarity_score.py`)
-* **`src/`**: Core modules (`config.py`, `embedding.py`, `inference.py`, `ingestion.py`, `pairing.py`, `similarity_score.py`)
-* **`scripts/`**: Executable scripts (`ingest_lfw.py`, `pair_lfw.py`, `similarity_lfw.py`, `benchmark.py`, `infer_pair.py`, `load_test.py`)
-* **`configs/`**: Configuration files (`default.yaml` with all pipeline parameters)
-* **`Dockerfile`**: Container build for the pair-level inference entrypoint
-* **`outputs/`**: Generated outputs (manifests, pairs, similarity scores) - **ignored by git**
-* **`data/`**: Downloaded LFW dataset images - **ignored by git**
-
-## How to Run
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/princeixr/FaceID_Verification.git
-cd FaceID_Verification
-```
-
-### 2. Environment Setup
-
-```bash
-# Create virtual environment (optional but recommended)
-python -m venv .venv
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-# macOS/Linux
-# source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 3. Run Pipeline
-
-Execute the three milestone commands in order:
-
-```bash
-# 1. Ingest LFW dataset and create train/val/test splits
-python scripts/ingest_lfw.py
-
-# 2. Generate positive and negative pairs for each split
-python scripts/pair_lfw.py
-
-# 3. Compute similarity scores (cosine similarity and Euclidean distance)
-python scripts/similarity_lfw.py
-
-# 4. Benchmark similarity computation performance
-python scripts/benchmark.py
-```
-
-All scripts automatically load configuration from `configs/default.yaml`.
-
-### 4. Milestone 2 Evaluation (Tracked Runs)
-
-Use the evaluation runner for threshold selection and final reporting:
-
-Split roles used by `run_eval.py`:
-
-* Threshold selection is done on the validation split in sweep mode.
-* Final reporting is read from the held-out test split at the selected threshold.
-* Score direction is `higher-is-more-same` for cosine similarity.
-
-```bash
-# Sweep mode (default rule: max_accuracy)
-python scripts/run_eval.py --config configs/default.yaml --mode sweep --note "baseline-sweep"
-
-# Sweep mode with a different selection rule
-python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "sweep-balanced"
-
-# Fixed mode (lock threshold for reporting)
-python scripts/run_eval.py --config configs/default.yaml --mode fixed --fixed-threshold 0.7 --note "final-fixed"
-```
-
-Threshold rule behavior:
-
-* You can change the rule any run using `--selection-rule`.
-* Supported rules: `max_accuracy`, `max_balanced_accuracy`, `max_f1`.
-* If not provided, the default is `max_accuracy`.
-
-This means threshold policy is not hardcoded. You can explicitly choose the rule per run for fair, reproducible comparisons.
-
-### 4.1 Milestone 2 Quick Path
-
-If you want only the Milestone 2 workflow from a clean clone, run these commands in order:
-
-```bash
-python scripts/ingest_lfw.py
-python scripts/pair_lfw.py --config configs/default.yaml
-python scripts/similarity_lfw.py
-python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
-python scripts/run_error_analysis.py --run-dir outputs/runs/<baseline_run_id> --split test --top-k 20
-
-python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
-python scripts/similarity_lfw.py
-python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
-python scripts/run_error_analysis.py --run-dir outputs/runs/<improved_run_id> --split test --top-k 20
-```
-
-For additional context and exact artifact locations, see `reports/Milestone2_Report.md`.
-
-### 5. Tests
-
-Run unit and integration tests with:
-
-```bash
-python -m pytest -q tests
-```
-
-Run only the Milestone 2 miniature integration pipeline test:
-
-```bash
-python -m pytest -q tests/test_integration_eval_pipeline.py
-```
-
-### 6. Error Slice Analysis (Milestone 2)
-
-After running evaluation, generate at least two required error slices (false positives and false negatives):
-
-```bash
-python scripts/run_error_analysis.py --run-dir outputs/runs/<run_id> --split test --top-k 20
-```
-
-Artifacts are written under:
-
-* `outputs/runs/<run_id>/error_analysis/test_error_slices_summary.json`
-* `outputs/runs/<run_id>/error_analysis/test_false_positives.csv`
-* `outputs/runs/<run_id>/error_analysis/test_false_negatives.csv`
-
-### 7. Data-Centric Improvement Workflow
-
-This repo includes one data-centric option to reduce identity overrepresentation during pair generation:
-
-* `pairs.identity_cap_enabled`
-* `pairs.max_pairs_per_identity`
-
-Use the dedicated config for the improved variant:
-
-```bash
-python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
-python scripts/similarity_lfw.py
-python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
-```
-
-After running baseline and improved variants, compare artifacts in:
-
-* `outputs/comparisons/baseline_vs_identity_cap.json`
-* `outputs/comparisons/baseline_vs_identity_cap.csv`
-
-### 8. Report and Submission-Visible Artifacts
-
-Primary report:
-
-* `reports/Milestone2_Report.md`
-
-Submission-visible evidence copied under `reports/evidence/`:
-
-* Figures:
-	* `reports/evidence/figures/baseline_roc_curve.png`
-	* `reports/evidence/figures/baseline_confusion_matrix_test.png`
-	* `reports/evidence/figures/improved_roc_curve.png`
-	* `reports/evidence/figures/improved_confusion_matrix_test.png`
-* Comparison summaries:
-	* `reports/evidence/comparisons/baseline_vs_identity_cap.json`
-	* `reports/evidence/comparisons/baseline_vs_identity_cap.csv`
-
-### 9. Reproduce Selected Threshold and Main Reported Result
-
-Threshold policy used for reported results:
-
-* Selection split: validation
-* Rule: `max_balanced_accuracy`
-* Score direction: `higher-is-more-same` (cosine similarity)
-* Selected threshold in the current reported runs: `0.70` (baseline and improved)
-
-Main reported comparison from current tracked runs:
-
-* Baseline test accuracy: `0.5640`
-* Improved test accuracy: `0.5483`
-* Baseline test FPR/FNR: `0.2518 / 0.1842`
-* Improved test FPR/FNR: `0.2518 / 0.1998`
-
-These values are traceable in `outputs/run_summary.csv` and summarized in `reports/Milestone2_Report.md`.
-
-### 10. Clean-Clone Reproducibility Check (Before Tagging)
-
-From a fresh clone, run this exact sequence:
-
-```bash
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-python scripts/ingest_lfw.py
-python scripts/pair_lfw.py --config configs/default.yaml
-python scripts/similarity_lfw.py
-python scripts/run_eval.py --config configs/default.yaml --mode sweep --selection-rule max_balanced_accuracy --note "baseline-default"
-
-python scripts/pair_lfw.py --config configs/milestone2_identity_cap.yaml
-python scripts/similarity_lfw.py
-python scripts/run_eval.py --config configs/milestone2_identity_cap.yaml --mode sweep --selection-rule max_balanced_accuracy --note "data-centric-improved-identity-cap"
-
-python -m pytest -q tests
-```
-
-Confirm after running:
-
-* `outputs/run_summary.csv` contains both new run rows.
-* Each run folder under `outputs/runs/<run_id>/` has `run_info.json`, `threshold_metrics.csv`, `test_metrics.json`, and `plots/confusion_matrix_test.png`.
-* The selected threshold in both runs is `0.70` for the currently reported result path.
-
-## Outputs
-
-After running the pipeline, the following files are generated in `outputs/`:
-
-**Manifests** (`outputs/manifests/`):
-
-* `lfw_samples.csv` - Sample records with person, path, and split assignments
-* `lfw_manifest.json` - Dataset metadata including counts and split information
-
-**Pairs** (`outputs/pairs/`):
-
-* `train_pairs.csv` - Training pairs (left_path, right_path, label, split)
-* `val_pairs.csv` - Validation pairs
-* `test_pairs.csv` - Test pairs
-* `pair_policy.json` - Pair generation policy and parameters
-
-**Similarity Scores** (`outputs/similarity_score/`):
-
-* `train_pairs_scored.csv` - Training pairs with cosine similarity and L2 distance
-* `val_pairs_scored.csv` - Validation pairs with scores
-* `test_pairs_scored.csv` - Test pairs with scores
-
-## Determinism Notes
-
-The pipeline is fully deterministic with **random seed 1337**. Determinism is ensured by:
-
-* Fixed random seed (1337) for all random operations
-* Deterministic file ordering (no shuffling in TensorFlow Datasets)
-* Identity-disjoint splits (same identity always in same split)
-* Deterministic pair generation using seeded RNG streams with fixed offsets
-* Deterministic image filename generation based on sample_id
-
-Running the pipeline multiple times with the same configuration produces identical outputs.
-
-## Features
-
-* Similarity scoring
-* Calibration
-* Latency Tracking
-* Reproducibility focus
-
-## Architecture Overview
-
-## Evaluation Section
-
-## Performance
-
-## Project Structure
-
-## Limitations
-
-## Future Work
-
-## License
+* `src/` - core logic for config, embedding, inference, evaluation, thresholding, and tracking
+* `scripts/` - runnable entrypoints for ingestion, pair generation, evaluation, CLI inference, and load test
+* `configs/` - YAML configuration files
+* `outputs/` - generated artifacts
+* `data/` - downloaded LFW images
+* `Dockerfile` - container entrypoint for the CLI
+
+## Notes
+
+* The embedding stage is deterministic and local for now, so the pipeline stays reproducible and easy to package.
+* The Milestone 3 inference path is split into preprocessing, embedding generation, similarity scoring, threshold decision, confidence computation, and latency measurement.
+* Milestone 2 and Milestone 3 artifacts are preserved so the repo still supports tracked evaluation and comparison.

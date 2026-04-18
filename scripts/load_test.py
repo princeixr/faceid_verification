@@ -64,29 +64,62 @@ def main() -> int:
 
     start = time.perf_counter()
     latencies_ms: list[float] = []
+    request_records: list[dict[str, Any]] = []
+    failure_count = 0
     futures = []
     with ThreadPoolExecutor(max_workers=max(1, int(args.workers))) as executor:
-        for row in tasks:
+        for request_index, row in enumerate(tasks, start=1):
             futures.append(
-                executor.submit(
+                (
+                    request_index,
+                    row,
+                    executor.submit(
                     infer_pair,
                     row["left_path"],
                     row["right_path"],
                     config,
                     threshold=args.threshold,
+                ),
                 )
             )
 
-        for future in as_completed(futures):
-            result = future.result()
-            latencies_ms.append(float(result["latency_ms"]))
+        for request_index, row, future in futures:
+            try:
+                result = future.result()
+                latency_ms = float(result["latency_ms"])
+                latencies_ms.append(latency_ms)
+                request_records.append(
+                    {
+                        "request_index": request_index,
+                        "pair_id": result.get("pair_id") or row.get("pair_id") or f"pair_{request_index:06d}",
+                        "left_path": row["left_path"],
+                        "right_path": row["right_path"],
+                        "status": "ok",
+                        "latency_ms": latency_ms,
+                    }
+                )
+            except Exception as exc:
+                failure_count += 1
+                request_records.append(
+                    {
+                        "request_index": request_index,
+                        "pair_id": row.get("pair_id") or f"pair_{request_index:06d}",
+                        "left_path": row["left_path"],
+                        "right_path": row["right_path"],
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
 
     total_elapsed_s = time.perf_counter() - start
     total_requests = len(tasks)
+    successful_requests = total_requests - failure_count
     throughput_rps = total_requests / total_elapsed_s if total_elapsed_s > 0 else 0.0
 
     summary: dict[str, Any] = {
         "total_requests": total_requests,
+        "successful_requests": successful_requests,
+        "failed_requests": failure_count,
         "workers": int(args.workers),
         "repeat": int(args.repeat),
         "elapsed_seconds": float(total_elapsed_s),
@@ -98,6 +131,7 @@ def main() -> int:
             "min": float(min(latencies_ms)) if latencies_ms else 0.0,
             "max": float(max(latencies_ms)) if latencies_ms else 0.0,
         },
+        "requests": request_records,
     }
 
     summary_json = json.dumps(summary, indent=2)

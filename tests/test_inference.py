@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 
 from src.config import Config
-from src.inference import infer_pair
+from src.inference import _derive_confidence, compute_similarity_score, infer_pair
 
 
 def _make_config(tmp_path: Path) -> Config:
@@ -69,3 +69,32 @@ def test_infer_pair_returns_pair_level_fields(tmp_path: Path) -> None:
     assert expected_stages.issubset(set(result["stage_latency_ms"].keys()))
     for key in expected_stages:
         assert float(result["stage_latency_ms"][key]) >= 0.0
+
+
+def test_compute_similarity_score_on_toy_embeddings(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    same_left = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+    same_right = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+    diff_right = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+
+    same_score = compute_similarity_score(same_left, same_right, config)
+    diff_score = compute_similarity_score(same_left, diff_right, config)
+
+    assert abs(same_score - 1.0) <= 1e-9
+    assert abs(diff_score) <= 1e-12
+
+
+def test_derive_confidence_respects_margin_direction() -> None:
+    threshold = 0.5
+
+    above_threshold = _derive_confidence(0.8, threshold, higher_means_same=True, sharpness=10.0)
+    at_threshold = _derive_confidence(0.5, threshold, higher_means_same=True, sharpness=10.0)
+    below_threshold = _derive_confidence(0.2, threshold, higher_means_same=True, sharpness=10.0)
+
+    assert above_threshold > at_threshold > below_threshold
+    assert abs(at_threshold - 0.5) < 1e-12
+
+    # For lower-means-same mode, smaller score should mean higher confidence.
+    lower_mode_high = _derive_confidence(0.2, threshold, higher_means_same=False, sharpness=10.0)
+    lower_mode_low = _derive_confidence(0.8, threshold, higher_means_same=False, sharpness=10.0)
+    assert lower_mode_high > lower_mode_low

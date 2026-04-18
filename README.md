@@ -205,7 +205,7 @@ The load-test summary includes:
 ### Tests
 
 ```bash
-pytest tests/test_embedding.py tests/test_inference.py tests/test_thresholding.py tests/test_metrics.py tests/test_tracking.py tests/test_validation.py tests/test_integration_eval_pipeline.py
+pytest tests/test_embedding.py tests/test_inference.py tests/test_infer_pair_cli.py tests/test_thresholding.py tests/test_metrics.py tests/test_tracking.py tests/test_validation.py tests/test_integration_eval_pipeline.py
 ```
 
 ### Milestone 3 Artifacts

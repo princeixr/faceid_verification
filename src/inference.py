@@ -35,7 +35,7 @@ def generate_pair_embeddings(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Generate embeddings from preprocessed image arrays."""
     embedding_cfg = config._config.get("embedding", {})
-    dimension = int(embedding_cfg.get("dimension", config.embedding.dimension))
+    dimension = int(embedding_cfg.get("dimension", 100))
     left_embedding = build_face_embedding_from_preprocessed(left_preprocessed, config, dimension=dimension)
     right_embedding = build_face_embedding_from_preprocessed(right_preprocessed, config, dimension=dimension)
     return left_embedding, right_embedding
@@ -78,6 +78,9 @@ def infer_pair(
 
     if threshold is None:
         threshold = float(config._config.get("similarity_threshold", {}).get("default", 0.7))
+    confidence_cfg = config._config.get("confidence", {})
+    confidence_method = str(confidence_cfg.get("method", "logistic_margin"))
+    confidence_sharpness = float(confidence_cfg.get("sharpness", 10.0))
 
     total_start = perf_counter()
 
@@ -98,7 +101,12 @@ def infer_pair(
     threshold_latency_ms = (perf_counter() - threshold_start) * 1000.0
 
     confidence_start = perf_counter()
-    confidence = _derive_confidence(similarity_score, float(threshold), higher_means_same=higher_means_same)
+    confidence = _derive_confidence(
+        similarity_score,
+        float(threshold),
+        higher_means_same=higher_means_same,
+        sharpness=confidence_sharpness,
+    )
     confidence_latency_ms = (perf_counter() - confidence_start) * 1000.0
 
     latency_ms = (perf_counter() - total_start) * 1000.0
@@ -118,6 +126,8 @@ def infer_pair(
         "threshold": float(threshold),
         "decision": decision,
         "confidence": confidence,
+        "confidence_method": confidence_method,
+        "confidence_sharpness": float(confidence_sharpness),
         "latency_ms": float(latency_ms),
         "stage_latency_ms": stage_latency_ms,
     }

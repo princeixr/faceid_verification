@@ -81,6 +81,60 @@ For each pair, CLI output includes:
 * calibrated confidence
 * latency for that inference
 
+### Milestone 3 Confidence Definition
+
+Confidence is computed with a documented, reproducible rule from score margin
+relative to the operating threshold.
+
+Rule used:
+
+* method: `logistic_margin`
+* margin (higher-is-same): `margin = similarity_score - threshold`
+* margin (lower-is-same): `margin = threshold - similarity_score`
+* confidence transform: `confidence = 1 / (1 + exp(-sharpness * margin))`
+* default sharpness: `10.0` from `configs/default.yaml` under `confidence.sharpness`
+
+Output range and interpretation:
+
+* range is `(0, 1)`
+* values near `0.5` indicate low decision margin near threshold
+* values closer to `1.0` indicate stronger evidence for the predicted class under
+	the current threshold and score direction
+
+This is a calibrated confidence proxy for Milestone 3; it is deterministic and
+reproducible for the same inputs, threshold, and config.
+
+### Milestone 3 Docker Packaging
+
+Build image from repository root (`FaceID_Verification`):
+
+```bash
+docker build -t faceid-verification:m3 .
+```
+
+Smoke test that CLI runs inside container:
+
+```bash
+docker run --rm faceid-verification:m3 --help
+```
+
+Run single-pair inference inside container using repository files mounted at
+`/app`:
+
+```bash
+docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json
+```
+
+Run batch inference from a pair CSV:
+
+```bash
+docker run --rm -v ${PWD}:/app -w /app faceid-verification:m3 --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --output-format json
+```
+
+Note: `data/` and `outputs/` are intentionally excluded from image build context
+via `.dockerignore`, so runtime inference commands mount the working directory
+to provide local datasets and pair files.
+
 ### Milestone 3 Threshold Selection
 
 The Milestone 3 embedding-based system currently uses the following operating

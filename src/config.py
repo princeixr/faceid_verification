@@ -128,6 +128,12 @@ class Config:
                 benchmark["tolerance"] = float(benchmark["tolerance"])
             if "benchmark_dimension" in benchmark:
                 benchmark["benchmark_dimension"] = int(benchmark["benchmark_dimension"])
+
+        # Convert confidence values
+        if "confidence" in config_dict:
+            confidence = config_dict["confidence"]
+            if "sharpness" in confidence:
+                confidence["sharpness"] = float(confidence["sharpness"])
     
     def __getattr__(self, name: str):
         """Access nested config sections."""

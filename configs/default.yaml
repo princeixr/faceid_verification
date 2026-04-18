@@ -94,3 +94,8 @@ similarity_threshold:
   range: [0.3, 0.95]
   increment: 0.05
   default: 0.7
+
+# Confidence computation configuration
+confidence:
+  method: "logistic_margin"  # confidence = 1 / (1 + exp(-sharpness * margin))
+  sharpness: 10.0  # Larger values produce steeper confidence transitions near threshold

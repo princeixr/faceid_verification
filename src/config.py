@@ -96,6 +96,22 @@ class Config:
                 embedding["dimension"] = int(embedding["dimension"])
             if "normalization_value" in embedding:
                 embedding["normalization_value"] = float(embedding["normalization_value"])
+            if "preprocess_size" in embedding:
+                preprocess_size = embedding["preprocess_size"]
+                if isinstance(preprocess_size, list):
+                    embedding["preprocess_size"] = tuple(preprocess_size)
+            if "spatial_size" in embedding:
+                spatial_size = embedding["spatial_size"]
+                if isinstance(spatial_size, list):
+                    embedding["spatial_size"] = tuple(spatial_size)
+            if "grid_size" in embedding:
+                grid_size = embedding["grid_size"]
+                if isinstance(grid_size, list):
+                    embedding["grid_size"] = tuple(grid_size)
+            if "frequency_block" in embedding:
+                frequency_block = embedding["frequency_block"]
+                if isinstance(frequency_block, list):
+                    embedding["frequency_block"] = tuple(frequency_block)
         
         # Convert similarity epsilon to float
         if "similarity" in config_dict:
@@ -112,6 +128,12 @@ class Config:
                 benchmark["tolerance"] = float(benchmark["tolerance"])
             if "benchmark_dimension" in benchmark:
                 benchmark["benchmark_dimension"] = int(benchmark["benchmark_dimension"])
+
+        # Convert confidence values
+        if "confidence" in config_dict:
+            confidence = config_dict["confidence"]
+            if "sharpness" in confidence:
+                confidence["sharpness"] = float(confidence["sharpness"])
     
     def __getattr__(self, name: str):
         """Access nested config sections."""

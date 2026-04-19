@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.config import Config
 from src.io_utils import save_csv, save_json
+from src.inference import get_selected_threshold_artifact_path
 from src.thresholding import evaluate_at_threshold, get_best_threshold
 from src.tracking import append_run_summary, create_run_dir, make_run_id, save_run_info
 from src.validation import (
@@ -21,6 +22,30 @@ from src.validation import (
 def _touch(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"test")
+
+
+def _persist_selected_threshold(
+    config: Config,
+    *,
+    selected_threshold: float,
+    selection_rule: str,
+    selection_split: str,
+    run_id: str,
+    run_dir: Path,
+) -> Path:
+    artifact_path = get_selected_threshold_artifact_path(config)
+    save_json(
+        {
+            "threshold": float(selected_threshold),
+            "selection_rule": selection_rule,
+            "selection_split": selection_split,
+            "run_id": run_id,
+            "source_run_dir": str(run_dir),
+            "source_run_info": str(run_dir / "run_info.json"),
+        },
+        artifact_path,
+    )
+    return artifact_path
 
 
 def test_mini_eval_pipeline_creates_tracking_artifacts(tmp_path: Path) -> None:
@@ -102,6 +127,14 @@ def test_mini_eval_pipeline_creates_tracking_artifacts(tmp_path: Path) -> None:
             "selection_rule": "max_accuracy",
         },
     )
+    selected_threshold_artifact = _persist_selected_threshold(
+        config,
+        selected_threshold=float(selected_threshold),
+        selection_rule="max_accuracy",
+        selection_split="val",
+        run_id=run_id,
+        run_dir=run_dir,
+    )
     save_json(threshold_metrics, run_dir / "threshold_metrics.json")
     save_csv(pd.DataFrame(threshold_metrics), run_dir / "threshold_metrics.csv")
 
@@ -125,6 +158,7 @@ def test_mini_eval_pipeline_creates_tracking_artifacts(tmp_path: Path) -> None:
     assert (run_dir / "threshold_metrics.json").exists()
     assert (run_dir / "threshold_metrics.csv").exists()
     assert summary_path.exists()
+    assert selected_threshold_artifact.exists()
 
     lines = summary_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
@@ -132,3 +166,7 @@ def test_mini_eval_pipeline_creates_tracking_artifacts(tmp_path: Path) -> None:
 
     info = json.loads((run_dir / "run_info.json").read_text(encoding="utf-8"))
     assert info["run_id"] == run_id
+
+    selected_threshold_payload = json.loads(selected_threshold_artifact.read_text(encoding="utf-8"))
+    assert float(selected_threshold_payload["threshold"]) == float(selected_threshold)
+    assert selected_threshold_payload["selection_split"] == "val"

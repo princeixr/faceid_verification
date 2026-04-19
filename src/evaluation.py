@@ -6,9 +6,12 @@ This module should contain reusable helpers that `scripts/run_eval.py` calls.
 
 from __future__ import annotations
 
+import logging
+from time import perf_counter
 from typing import Any
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 from src.config import Config
 from src.similarity_score import get_cosine_similarity_batch, euclidean_distance_batch, build_embedding_batches
@@ -17,12 +20,37 @@ from src.thresholding import apply_threshold
 # from src.io_utils import write_experiment_pairs_with_scores
 
 
-def compute_similarity_scores(pair_df: Any, config: Config, similarity_type: str) -> Any:
+def compute_similarity_scores(
+    pair_df: Any,
+    config: Config,
+    similarity_type: str,
+    *,
+    logger: logging.Logger | None = None,
+    progress_label: str = "pairs",
+    log_every: int = 250,
+) -> Any:
     """
     Compute similarity scores for a given pair of images.
     """
+    total_pairs = len(pair_df)
+    if logger is not None:
+        logger.info(
+            "Scoring %s: building embeddings for %d pairs using %s similarity",
+            progress_label,
+            total_pairs,
+            similarity_type,
+        )
+
+    started_at = perf_counter()
     #create embedding batches 
     pair_left, pair_right, pair_label = build_embedding_batches(pair_df, config)
+    if logger is not None:
+        logger.info(
+            "Scoring %s: embeddings built in %.2fs; computing %s similarity scores",
+            progress_label,
+            perf_counter() - started_at,
+            similarity_type,
+        )
     #get cosine similarity using config epsilon
     if similarity_type == "cosine":
         scores = get_cosine_similarity_batch(pair_left, pair_right, config)
@@ -31,9 +59,32 @@ def compute_similarity_scores(pair_df: Any, config: Config, similarity_type: str
     else:
         raise ValueError(f"Invalid similarity type: {similarity_type}")
 
+    progress = tqdm(
+        pair_df,
+        desc=f"Attach scores ({progress_label})",
+        unit="pair",
+        leave=False,
+        disable=(total_pairs == 0),
+    )
     # Attach score to each dict in the list (works for List[Dict])
-    for i, row in enumerate(pair_df):
+    for i, row in enumerate(progress):
         row["similarity_score"] = float(scores[i])
+        if logger is not None and log_every > 0:
+            processed = i + 1
+            if processed == total_pairs or processed % log_every == 0:
+                logger.info(
+                    "Scoring %s: attached scores for %d/%d pairs",
+                    progress_label,
+                    processed,
+                    total_pairs,
+                )
+
+    if logger is not None:
+        logger.info(
+            "Scoring %s complete in %.2fs",
+            progress_label,
+            perf_counter() - started_at,
+        )
 
     return pair_df
 
@@ -96,4 +147,3 @@ def attach_predictions(pairs_df: Any, y_pred: Any, *, threshold: float) -> Any:
     df["y_pred"] = pred_arr
     df["threshold"] = float(threshold)
     return df
-

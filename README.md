@@ -175,13 +175,34 @@ cat outputs/inference/selected_threshold.json
 Run single-pair inference locally. If `outputs/inference/selected_threshold.json` exists, the CLI will use that threshold automatically unless `--threshold` is passed explicitly:
 
 ```bash
-python3 scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json --output-json outputs/cli_test_infer_pair.json
+python3 scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json
 ```
 
 Run batch inference over a CSV of pairs:
 
 ```bash
 python3 scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --output-format json
+```
+
+If you want to evaluate only the first `N` rows from the CSV, use `--max-pairs`:
+
+```bash
+python3 scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --max-pairs 25 --output-format json
+```
+
+Every inference invocation now writes artifacts automatically under `outputs/inference/`. Single-pair runs create a folder like `outputs/inference/infer_single_<timestamp>/`, and batch runs create `outputs/inference/infer_batch_<timestamp>/`.
+
+Each inference artifact folder contains:
+
+* `results.json` - full result payload for the run
+* `run_info.json` - run metadata, including pair count and threshold override if used
+* `pairs/<pair_id>.json` - one JSON result per processed pair
+* `plots/<pair_id>.png` - one side-by-side comparison plot per processed pair
+
+Optional explicit output paths still work when you want an extra copy in a specific location:
+
+```bash
+python3 scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json --output-json outputs/cli_test_infer_pair.json --output-plot outputs/cli_test_infer_pair.png
 ```
 
 The CLI prints:
@@ -196,7 +217,7 @@ The CLI prints:
 
 ### Confidence
 
-Confidence uses a deterministic logistic-margin rule:
+Confidence uses a deterministic logistic-margin rule. The stored confidence is confidence in the current binary decision, not an independent class probability. It measures how far the similarity score is from the operating threshold in the direction of the selected decision.
 
 * `margin = similarity_score - threshold` when higher scores mean same identity
 * `margin = threshold - similarity_score` when lower scores mean same identity
@@ -206,8 +227,9 @@ Confidence uses a deterministic logistic-margin rule:
 Range and interpretation:
 
 * range: `(0, 1)`
-* around `0.5`: near the decision boundary
-* near `1.0`: stronger support for the predicted class
+* around `0.5`: the score is near the decision boundary, so the system has weak support for the current decision
+* near `1.0`: the score is farther past the threshold in the decision direction, so the system has stronger support for the current decision
+* this value should be read as threshold-margin decision confidence, not as a calibrated posterior probability of identity match
 
 ### Threshold
 
@@ -282,7 +304,8 @@ python3 -m pytest tests/test_embedding.py tests/test_inference.py tests/test_inf
 
 ### Milestone 3 Artifacts
 
-* CLI sample output: `outputs/cli_test_infer_pair.json`
+* Inference run artifacts: `outputs/inference/infer_single_<timestamp>/` or `outputs/inference/infer_batch_<timestamp>/`
+* Optional explicit CLI JSON output: `outputs/cli_test_infer_pair.json`
 * Load-test summary: `outputs/load_test_summary.json`
 * Persisted inference threshold: `outputs/inference/selected_threshold.json`
 * Selected-threshold metadata: `outputs/runs/run_20260417T160805Z_6b612ae4/run_info.json`
@@ -308,7 +331,8 @@ python3 scripts/run_eval.py --config configs/default.yaml --mode sweep --selecti
 
 cat outputs/inference/selected_threshold.json
 
-python3 scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json --output-json outputs/cli_test_infer_pair.json
+python3 scripts/infer_pair.py --config configs/default.yaml --left-path data/lfw/images/Barbara_Walters/004492.jpg --right-path data/lfw/images/Barbara_Walters/007353.jpg --output-format json
+python3 scripts/infer_pair.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --max-pairs 25 --output-format json
 python3 scripts/load_test.py --config configs/default.yaml --pairs-csv outputs/pairs/test_pairs.csv --workers 2 --repeat 1 --output-json outputs/load_test_summary.json
 python3 -m pytest tests/test_embedding.py tests/test_inference.py tests/test_infer_pair_cli.py tests/test_thresholding.py tests/test_metrics.py tests/test_tracking.py tests/test_validation.py tests/test_integration_eval_pipeline.py
 
@@ -319,7 +343,10 @@ docker run --rm -v "${PWD}:/app" -w /app faceid-verification:m3 --config configs
 
 Artifacts:
 
-* `outputs/cli_test_infer_pair.json` - sample CLI result
+* `outputs/inference/infer_single_<timestamp>/results.json` - full single-pair inference result
+* `outputs/inference/infer_batch_<timestamp>/results.json` - full batch inference result
+* `outputs/inference/infer_batch_<timestamp>/pairs/<pair_id>.json` - per-pair batch results
+* `outputs/inference/infer_batch_<timestamp>/plots/<pair_id>.png` - per-pair comparison plots
 * `outputs/load_test_summary.json` - load-test summary and latency distribution
 * `outputs/inference/selected_threshold.json` - persisted threshold used by inference
 * `outputs/run_summary.csv` - tracked evaluation history

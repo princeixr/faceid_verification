@@ -28,6 +28,7 @@ def _make_temp_config(tmp_path: Path) -> Path:
             "size": [64, 64],
         },
         "embedding": {
+            "backend": "deterministic_baseline",
             "dimension": 100,
             "normalization_value": 255.0,
             "preprocess_size": [64, 64],
@@ -103,3 +104,36 @@ def test_cli_single_pair_smoke_json_output(tmp_path: Path) -> None:
     assert isinstance(payload["similarity_score"], float)
     assert payload["decision"] in (0, 1)
     assert 0.0 <= float(payload["confidence"]) <= 1.0
+
+
+def test_cli_text_output_includes_stage_latency_breakdown(tmp_path: Path) -> None:
+    config_path = _make_temp_config(tmp_path)
+    left_rel = Path("data/lfw/images/A/000001.jpg")
+    right_rel = Path("data/lfw/images/B/000001.jpg")
+
+    _write_rgb(tmp_path / left_rel, np.full((80, 80, 3), 60, dtype=np.uint8))
+    _write_rgb(tmp_path / right_rel, np.full((80, 80, 3), 180, dtype=np.uint8))
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(CLI_SCRIPT),
+            "--config",
+            str(config_path),
+            "--left-path",
+            str(left_rel),
+            "--right-path",
+            str(right_rel),
+            "--output-format",
+            "text",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(PROJECT_ROOT),
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "stage_latency_ms.preprocessing=" in proc.stdout
+    assert "stage_latency_ms.embedding_generation=" in proc.stdout
+    assert "stage_latency_ms.similarity_scoring=" in proc.stdout

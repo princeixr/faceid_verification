@@ -1,4 +1,4 @@
-#!/Users/nandanprince/Desktop/facial_recognition/.venv/bin/python3.11
+#!/Users/nandanprince/Desktop/test_face-ID/FaceID_Verification/.venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys

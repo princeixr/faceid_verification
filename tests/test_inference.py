@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import numpy as np
 from PIL import Image
 
 from src.config import Config
-from src.inference import _derive_confidence, compute_similarity_score, infer_pair
+from src.inference import (
+    _derive_confidence,
+    compute_similarity_score,
+    get_selected_threshold_artifact_path,
+    infer_pair,
+    resolve_inference_threshold,
+)
 
 
 def _make_config(tmp_path: Path) -> Config:
@@ -20,6 +27,7 @@ def _make_config(tmp_path: Path) -> Config:
                 "size": [64, 64],
             },
             "embedding": {
+                "backend": "deterministic_baseline",
                 "dimension": 100,
                 "normalization_value": 255.0,
                 "preprocess_size": [64, 64],
@@ -98,3 +106,31 @@ def test_derive_confidence_respects_margin_direction() -> None:
     lower_mode_high = _derive_confidence(0.2, threshold, higher_means_same=False, sharpness=10.0)
     lower_mode_low = _derive_confidence(0.8, threshold, higher_means_same=False, sharpness=10.0)
     assert lower_mode_high > lower_mode_low
+
+
+def test_resolve_inference_threshold_prefers_persisted_artifact(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    artifact_path = get_selected_threshold_artifact_path(config)
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "threshold": 0.42,
+                "selection_rule": "max_f1",
+                "selection_split": "val",
+                "run_id": "run_test",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert resolve_inference_threshold(config) == 0.42
+
+
+def test_resolve_inference_threshold_prefers_explicit_override(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    artifact_path = get_selected_threshold_artifact_path(config)
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    artifact_path.write_text(json.dumps({"threshold": 0.42}), encoding="utf-8")
+
+    assert resolve_inference_threshold(config, explicit_threshold=0.61) == 0.61

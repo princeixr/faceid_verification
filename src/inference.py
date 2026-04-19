@@ -7,6 +7,8 @@ derive a confidence score, and report latency for the full call.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Dict, Optional, Tuple
 
@@ -21,6 +23,39 @@ def _cosine_similarity(left_embedding: np.ndarray, right_embedding: np.ndarray, 
     left_norm = float(np.linalg.norm(left_embedding))
     right_norm = float(np.linalg.norm(right_embedding))
     return dot_product / ((left_norm * right_norm) + eps)
+
+
+def get_selected_threshold_artifact_path(config: Config) -> Path:
+    paths_cfg = config._config.get("paths", {})
+    project_root = Path(paths_cfg.get("project_root", Path.cwd()))
+    out_root = Path(paths_cfg.get("out_root", "outputs"))
+    out_root_abs = out_root if out_root.is_absolute() else (project_root / out_root)
+    return out_root_abs / "inference" / "selected_threshold.json"
+
+
+def load_persisted_inference_threshold(config: Config) -> Optional[float]:
+    artifact_path = get_selected_threshold_artifact_path(config)
+    if not artifact_path.exists():
+        return None
+
+    with artifact_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    threshold = payload.get("threshold")
+    if threshold is None:
+        return None
+    return float(threshold)
+
+
+def resolve_inference_threshold(config: Config, explicit_threshold: Optional[float] = None) -> float:
+    if explicit_threshold is not None:
+        return float(explicit_threshold)
+
+    persisted_threshold = load_persisted_inference_threshold(config)
+    if persisted_threshold is not None:
+        return float(persisted_threshold)
+
+    return float(config._config.get("similarity_threshold", {}).get("default", 0.7))
 
 
 def preprocess_pair_inputs(left_path: str, right_path: str, config: Config) -> Tuple[np.ndarray, np.ndarray]:
@@ -76,8 +111,7 @@ def infer_pair(
 ) -> Dict[str, Any]:
     """Run the end-to-end pair-level inference path for two face images."""
 
-    if threshold is None:
-        threshold = float(config._config.get("similarity_threshold", {}).get("default", 0.7))
+    threshold = resolve_inference_threshold(config, explicit_threshold=threshold)
     confidence_cfg = config._config.get("confidence", {})
     confidence_method = str(confidence_cfg.get("method", "logistic_margin"))
     confidence_sharpness = float(confidence_cfg.get("sharpness", 10.0))

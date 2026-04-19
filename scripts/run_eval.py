@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import logging
 import sys
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Optional
 from similarity_lfw import get_pair_detail
 import pandas as pd
@@ -85,6 +87,20 @@ from src.thresholding import (
 from src.analysis import (
     analyze_metrics
 )
+from src.inference import get_selected_threshold_artifact_path
+
+
+LOGGER = logging.getLogger("run_eval")
+
+
+def configure_logging() -> None:
+    if LOGGER.handlers:
+        return
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     """CLI for tracked evaluation runs."""
@@ -147,6 +163,28 @@ def build_pair_version_tag(out_root_abs: Path, pairs_dir: Path, pair_policy_file
     return f"{policy_path.name}:{digest}"
 
 
+def persist_selected_threshold(
+    config: Config,
+    *,
+    selected_threshold: float,
+    selection_rule: str,
+    selection_split: str,
+    run_id: str,
+    run_dir: Path,
+) -> Path:
+    artifact_path = get_selected_threshold_artifact_path(config)
+    payload = {
+        "threshold": float(selected_threshold),
+        "selection_rule": selection_rule,
+        "selection_split": selection_split,
+        "run_id": run_id,
+        "source_run_dir": str(run_dir),
+        "source_run_info": str(run_dir / "run_info.json"),
+    }
+    save_json(payload, artifact_path)
+    return artifact_path
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main pipeline
 # ═══════════════════════════════════════════════════════════════════════════
@@ -169,6 +207,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     # ------------------------------------------------------------------
     # Stage 1: Parse args & load config
     # ------------------------------------------------------------------
+    configure_logging()
+    overall_start = perf_counter()
     args = parse_args(argv)
     config_path = Path(args.config).expanduser()
     note = args.note
@@ -176,16 +216,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     selection_rule = args.selection_rule
     fixed_threshold_arg = args.fixed_threshold
 
+    LOGGER.info("Stage 1/10: loading config from %s", config_path)
     config = Config.from_file(config_path)
 
-    # Stage 1: Initialize the experiment with unique run info
-
+    LOGGER.info("Stage 2/10: creating tracked run metadata")
     run_id = make_run_id()
     timestamp = get_timestamp()
     commit_hash = get_git_commit_hash()
     run_dir = create_run_dir(config, run_id)       # ✅
 
     copy_config_snapshot(config, run_dir / "config_used.yaml")
+    LOGGER.info("Run id: %s", run_id)
+    LOGGER.info("Run directory: %s", run_dir)
 
     run_info = {
         "run_id": run_id,
@@ -199,8 +241,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     }
     save_run_info(run_dir / "run_info.json", run_info) #save the run infor into run_info.json
 
-    # State 2: Load the image pairs (left_path, right_path, label (0,1), split (train, val, test))
-
+    LOGGER.info("Stage 3/10: resolving pair artifact paths")
     # Use config paths from dict-style access for static-checker friendliness.
     paths_cfg = config._config.get("paths", {})
     files_cfg = config._config.get("files", {})
@@ -218,11 +259,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_info["pair_version"] = pair_version
     save_run_info(run_dir / "run_info.json", run_info)
 
+    LOGGER.info("Stage 4/10: loading train/val/test pair artifacts")
     #load pair records
     train_pair_df = get_pair_detail(train_pair_path)
     test_pair_df = get_pair_detail(test_pair_path)
     val_pair_df = get_pair_detail(val_pair_path)
+    LOGGER.info(
+        "Loaded pairs: train=%d, val=%d, test=%d",
+        len(train_pair_df),
+        len(val_pair_df),
+        len(test_pair_df),
+    )
 
+    LOGGER.info("Stage 5/10: validating pair artifacts and config")
     # Validate the Pairs with the schema and missing-value checks
     train_pairs_pd = pd.DataFrame(train_pair_df)
     test_pairs_pd = pd.DataFrame(test_pair_df)
@@ -237,22 +286,34 @@ def main(argv: Optional[list[str]] = None) -> int:
     validate_threshold_config(config.similarity_threshold)
     check_split_integrity(pd.concat([train_pairs_pd, test_pairs_pd, val_pairs_pd], ignore_index=True))
 
-    # Stage 3: Compute the similarity scores
+    LOGGER.info("Stage 6/10: computing similarity scores for each split")
 
-    train_similarity_scores = pd.DataFrame(compute_similarity_scores(train_pair_df, config, "cosine"))  
-    test_similarity_scores = pd.DataFrame(compute_similarity_scores(test_pair_df, config, "cosine"))
-    val_similarity_scores = pd.DataFrame(compute_similarity_scores(val_pair_df, config, "cosine"))
+    train_similarity_scores = pd.DataFrame(
+        compute_similarity_scores(train_pair_df, config, "cosine", logger=LOGGER, progress_label="train")
+    )
+    test_similarity_scores = pd.DataFrame(
+        compute_similarity_scores(test_pair_df, config, "cosine", logger=LOGGER, progress_label="test")
+    )
+    val_similarity_scores = pd.DataFrame(
+        compute_similarity_scores(val_pair_df, config, "cosine", logger=LOGGER, progress_label="val")
+    )
 
     validate_scores_length(train_pair_df, train_similarity_scores["similarity_score"])
     validate_scores_length(test_pair_df, test_similarity_scores["similarity_score"])
     validate_scores_length(val_pair_df, val_similarity_scores["similarity_score"])
+    LOGGER.info("Similarity-score validation complete for all splits")
 
-    # Stage 4: Threshold sweep on validation  -OR-  fixed threshold
+    LOGGER.info("Stage 7/10: selecting operating threshold using mode=%s", mode)
     if mode == "sweep":
         selected_threshold, val_selection_metrics, threshold_metrics = get_best_threshold(
             val_similarity_scores,
             config,
             rule=selection_rule,
+        )
+        LOGGER.info(
+            "Selected threshold %.6f on validation using rule=%s",
+            float(selected_threshold),
+            selection_rule,
         )
     else:
         if fixed_threshold_arg is not None:
@@ -262,11 +323,23 @@ def main(argv: Optional[list[str]] = None) -> int:
         val_selection_metrics = evaluate_at_threshold(val_similarity_scores, selected_threshold, config)
         val_selection_metrics["threshold"] = selected_threshold
         threshold_metrics = [val_selection_metrics]
+        LOGGER.info("Using fixed threshold %.6f", float(selected_threshold))
 
     run_info["selected_threshold"] = float(selected_threshold)
     run_info["selection_split"] = "val"
     run_info["selection_rule"] = selection_rule
     save_run_info(run_dir / "run_info.json", run_info)
+    selected_threshold_artifact = persist_selected_threshold(
+        config,
+        selected_threshold=float(selected_threshold),
+        selection_rule=selection_rule,
+        selection_split="val",
+        run_id=run_id,
+        run_dir=run_dir,
+    )
+    run_info["selected_threshold_artifact"] = str(selected_threshold_artifact)
+    save_run_info(run_dir / "run_info.json", run_info)
+    LOGGER.info("Persisted selected threshold to %s", selected_threshold_artifact)
     
     print_run_summary(
         run_id=run_id,
@@ -277,7 +350,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         metrics=val_selection_metrics,
     )
 
-    # Stage 5: Evaluate at selected threshold on train/test/val
+    LOGGER.info("Stage 8/10: evaluating train/val/test at selected threshold")
     train_metrics = evaluate_at_threshold(train_similarity_scores, selected_threshold, config)
     test_metrics = evaluate_at_threshold(test_similarity_scores, selected_threshold, config)
     val_metrics = evaluate_at_threshold(val_similarity_scores, selected_threshold, config)
@@ -308,7 +381,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         metrics=val_metrics,
     )
 
-    # Stage 6: Persist the threshold sweep metrics
+    LOGGER.info("Stage 9/10: saving metrics, predictions, and plots")
     save_json(threshold_metrics, run_dir / "threshold_metrics.json")
     save_json(train_metrics, run_dir / "train_metrics.json")
     save_json(test_metrics, run_dir / "test_metrics.json")
@@ -329,6 +402,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         run_dir=run_dir,
     )
 
+    LOGGER.info("Stage 10/10: appending run summary")
     append_run_summary(
         config,
         {
@@ -348,7 +422,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             "note": note or "",
         },
     )
-    # print(train_similarity_scores.head())
+    LOGGER.info("Evaluation run complete in %.2fs", perf_counter() - overall_start)
     return 0
 
 

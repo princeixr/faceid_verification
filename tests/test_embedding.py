@@ -20,6 +20,7 @@ def _make_config(tmp_path: Path) -> Config:
                 "size": [64, 64],
             },
             "embedding": {
+                "backend": "deterministic_baseline",
                 "dimension": 100,
                 "normalization_value": 255.0,
                 "preprocess_size": [64, 64],

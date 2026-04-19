@@ -86,6 +86,7 @@ def _build_pairs(args: argparse.Namespace) -> list[dict[str, str]]:
 
 
 def _format_result_text(index: int, result: dict[str, Any], pair_id: str) -> str:
+    stage_latency_ms = result.get("stage_latency_ms", {})
     lines = [
         f"pair_index={index}",
         f"pair_id={pair_id}",
@@ -97,6 +98,15 @@ def _format_result_text(index: int, result: dict[str, Any], pair_id: str) -> str
         f"confidence={float(result['confidence']):.6f}",
         f"latency_ms={float(result['latency_ms']):.3f}",
     ]
+    for stage_name in (
+        "preprocessing",
+        "embedding_generation",
+        "similarity_scoring",
+        "threshold_decision",
+        "confidence_computation",
+    ):
+        if stage_name in stage_latency_ms:
+            lines.append(f"stage_latency_ms.{stage_name}={float(stage_latency_ms[stage_name]):.3f}")
     return "\n".join(lines)
 
 

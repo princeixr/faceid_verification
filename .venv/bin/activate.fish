@@ -30,7 +30,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/nandanprince/Desktop/facial_recognition/.venv"
+set -gx VIRTUAL_ENV "/Users/nandanprince/Desktop/test_face-ID/FaceID_Verification/.venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

@@ -1,13 +1,12 @@
 # Minimal requirements for this project.
 
-tensorflow==2.20.0
-tensorflow-datasets
-protobuf>=5.28.0,<6
 numpy
 pandas
 matplotlib
 pillow
 pyyaml
-pandas
-matplotlib
 pytest
+torch
+torchvision
+facenet-pytorch
+tqdm

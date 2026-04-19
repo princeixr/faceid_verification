@@ -1,15 +1,56 @@
 from __future__ import annotations
 
-import numpy as np
-import tensorflow_datasets as tfds
-from PIL import Image  # pip install pillow
-from collections import Counter
-from pathlib import Path
-import json
-from typing import Dict, List, Optional
-from collections import defaultdict
 import csv
+import json
+import shutil
+import tarfile
+import urllib.request
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import numpy as np
+from PIL import Image
+
 from src.config import Config
+
+# Official Labeled Faces in the Wild release (same images as tfds "lfw").
+LFW_TGZ_URL = "http://vis-www.cs.umass.edu/lfw/lfw.tgz"
+
+
+def _lfw_source_cache_dir(data_root: Path, config: Config) -> Path:
+    return data_root / config.paths.lfw_dir / "_lfw_cache"
+
+
+def _ensure_lfw_tgz(tgz_path: Path) -> None:
+    if tgz_path.is_file():
+        return
+    tgz_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading LFW from {LFW_TGZ_URL} ...")
+    with urllib.request.urlopen(LFW_TGZ_URL, timeout=600) as resp, tgz_path.open("wb") as out:
+        shutil.copyfileobj(resp, out)
+
+
+def _ensure_lfw_extracted(tgz_path: Path, extract_root: Path) -> Path:
+    lfw_root = extract_root / "lfw"
+    if lfw_root.is_dir() and any(lfw_root.iterdir()):
+        return lfw_root
+    extract_root.mkdir(parents=True, exist_ok=True)
+    print(f"Extracting {tgz_path.name} ...")
+    with tarfile.open(tgz_path, "r:gz") as tar:
+        tar.extractall(extract_root)
+    if not lfw_root.is_dir():
+        raise RuntimeError(f"Expected directory {lfw_root} after extracting LFW tarball.")
+    return lfw_root
+
+
+def _iter_lfw_person_jpg_paths(lfw_root: Path) -> list[tuple[str, Path]]:
+    pairs: list[tuple[str, Path]] = []
+    for person_dir in sorted(p for p in lfw_root.iterdir() if p.is_dir()):
+        person = person_dir.name
+        for img_path in sorted(person_dir.glob("*.jpg")):
+            pairs.append((person, img_path))
+    return pairs
 
 
 def write_samples_csv(records: list[dict], out_path: Path) -> None:
@@ -161,22 +202,24 @@ def download_and_save_lfw_images(
     images_dir = data_root / config.paths.lfw_dir / config.paths.images_dir
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use config data source settings
-    ds = tfds.load(
-        config.data_source.name.replace("tfds:", ""), 
-        split=config.data_source.tfds_split, 
-        shuffle_files=config.data_source.shuffle_files
-    )
+    dataset_name = config.data_source.name.replace("tfds:", "").strip()
+    if dataset_name != "lfw":
+        raise ValueError(f"Unsupported data source {config.data_source.name!r}; only LFW is supported.")
 
+    cache = _lfw_source_cache_dir(data_root, config)
+    tgz_path = cache / "lfw.tgz"
+    _ensure_lfw_tgz(tgz_path)
+    lfw_root = _ensure_lfw_extracted(tgz_path, cache / "extracted")
+
+    source_pairs = _iter_lfw_person_jpg_paths(lfw_root)
     records: list[dict] = []
-    
+
     # Use config overwrite setting if not explicitly provided
     if overwrite is None:
         overwrite = config.ingestion.overwrite
 
-    for sample_id, ex in enumerate(tfds.as_numpy(ds)):
-        person = ex["label"].decode("utf-8")          # bytes -> str
-        img = ex["image"]                             # numpy array uint8 (250,250,3)
+    for sample_id, (person, src_path) in enumerate(source_pairs):
+        img = np.asarray(Image.open(src_path).convert("RGB"), dtype=np.uint8)
 
         # Person directory
         person_dir = images_dir / person

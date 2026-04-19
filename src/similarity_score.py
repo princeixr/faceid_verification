@@ -1,12 +1,10 @@
-import numpy as np 
-from pathlib import Path 
-from typing import Dict, List, Tuple, Optional
 import math
-import csv 
-import json 
-import sys
-from PIL import Image
+from typing import Dict, List, Tuple, Optional
+
+import numpy as np
+
 from src.config import Config
+from src.embedding import build_face_embedding, build_face_embedding_batches, load_face_image
 
 def get_image_array(
     image_path: str, 
@@ -14,16 +12,9 @@ def get_image_array(
     size: Optional[Tuple[int, int]] = None, 
     dtype: np.dtype = np.uint8
     ) -> np.ndarray:
-    
-    if size is None:
-        size = config.image.size
-    
-    project_root = config.paths.project_root
-    path = project_root / image_path
-    img = Image.open(path).convert("RGB").resize(size)
-    img_array = np.asarray(img, dtype=dtype)
-
-    return img_array 
+    """Backward-compatible wrapper around the explicit embedding preprocessing stage."""
+    image = load_face_image(image_path, config, size=size)
+    return (image * config.embedding.normalization_value).astype(dtype)
 
 def get_image_embedding(
     image_path: str, 
@@ -31,31 +22,10 @@ def get_image_embedding(
     normalize: Optional[bool] = None,
     D: Optional[int] = None
     ) -> np.ndarray:
-    """
-    Convert the image array (H, W, 3) to a 1D vector
-    Later on we will build the embedding logic
-    """
-    if normalize is None:
-        normalize = config.embedding.normalize
+    """Backward-compatible wrapper for the explicit face embedding stage."""
     if D is None:
         D = config.embedding.dimension
-    
-    img_array = get_image_array(image_path, config)
-    x = img_array.astype(np.float32)
-    #normalizing the values to [0, 1]
-    if normalize:
-        x /= config.embedding.normalization_value
-
-    flat = x.reshape(-1)
-
-    if D == flat.shape[0]:
-        return flat 
-    if D <= 0:
-        raise ValueError("D must be a positive integer.")
-    
-    # simple deterministic sampling
-    idx = np.linspace(0, flat.shape[0] - 1, num=D, dtype=np.int64)
-    return flat[idx]
+    return build_face_embedding(image_path, config, dimension=D)
 
 def get_cosine_similarity_batch(
     a: np.ndarray, 
@@ -143,17 +113,4 @@ def build_embedding_batches(
     D: Optional[int] = None
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build embedding batches from pairs."""
-    if D is None:
-        D = config.embedding.dimension
-    
-    left_vecs, right_vecs, labels = [], [], []
-    for p in pairs:
-        left_vecs.append(get_image_embedding(p["left_path"], config, D=D))
-        right_vecs.append(get_image_embedding(p["right_path"], config, D=D))
-        labels.append(int(p["label"]))
-
-    L = np.stack(left_vecs, axis=0)    # (N, D)
-    R = np.stack(right_vecs, axis=0)   # (N, D)
-    y = np.asarray(labels)             # (N,)
-
-    return L, R, y
+    return build_face_embedding_batches(pairs, config, dimension=D)

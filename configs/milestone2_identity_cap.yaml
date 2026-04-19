@@ -12,7 +12,7 @@ paths:
   similarity_score_dir: "similarity_score"
 
 data_source:
-  name: "tfds:lfw"
+  name: "tfds:lfw"  # LFW via official tarball (see src/ingestion.py)
   tfds_split: "train"
   shuffle_files: false
 

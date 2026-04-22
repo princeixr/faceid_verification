@@ -1,5 +1,12 @@
 # FaceID_Verification System
 
+> Compare two faces, score the match, explain the decision, and ship it with reproducible evaluation artifacts.
+
+| Same Identity Detected | Different Identity Rejected |
+| --- | --- |
+| ![Successful face match comparison](reports/evidence/figures/inference_match_example.png) | ![Rejected face comparison](reports/evidence/figures/inference_non_match_example.png) |
+| High-confidence positive match with score, threshold, decision, and latency in one output. | High-confidence negative match showing the full side-by-side inference result. |
+
 End-to-end face verification pipeline with deterministic data preparation, tracked evaluation, embedding-based inference using `InceptionResnetV1`, Docker packaging, and local load testing.
 
 ## What This Repo Produces

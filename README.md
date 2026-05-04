@@ -2,7 +2,9 @@
 
 End-to-end face verification pipeline. The repo covers deterministic data ingestion, pair generation, tracked evaluation, an embedding-based inference path built around `InceptionResnetV1`, Docker packaging, local load testing, CPU profiling, and final Milestone 4 release documentation.
 
-![Example final inference pair: same-identity verification result with score, threshold, decision, confidence, and latency](reports/evidence/figures/final_inference_pair_example.png)
+| Positive pair (`decision=1`) | Negative pair (`decision=0`) |
+|---|---|
+| ![Positive same-identity face verification example](reports/evidence/figures/inference_match_example.png) | ![Negative different-identity face verification example](reports/evidence/figures/inference_non_match_example.png) |
 
 ## What This Repo Produces
 

@@ -3,7 +3,6 @@
 Final system version: Milestone 4 release candidate  
 Primary config: `configs/default.yaml`  
 Inference entrypoint: `scripts/infer_pair.py`  
-Recommended final tag: `v1.0-final`
 
 ## System Overview
 

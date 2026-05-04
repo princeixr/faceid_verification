@@ -254,7 +254,3 @@ Interpretation:
 - Data balancing changes operating behavior, not just scalar accuracy.
 - The preferred variant depends on whether the use case prioritizes false-accept control or false-reject control.
 
-## 6. Remaining Item
-
-- Milestone tag still pending:
-  - create and push v0.2 on the final reproducible commit.

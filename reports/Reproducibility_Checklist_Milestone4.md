@@ -1,6 +1,6 @@
 # Milestone 4 Reproducibility Checklist
 
-Use this checklist from a clean clone to reproduce the final system path, core metrics, profiling summary, Docker CLI, and final release tag.
+Use this checklist from a clean clone to reproduce the final system path, core metrics, profiling summary, Docker CLI.
 
 ## 1. Clone And Install
 

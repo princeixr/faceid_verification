@@ -27,7 +27,6 @@ Milestone 4 finalization artifacts are:
 * Final config: `configs/default.yaml`
 * CLI entrypoint: `scripts/infer_pair.py`
 * Profiling entrypoint: `scripts/profile_inference.py`
-* Recommended final tag after commit: `v1.0-final`
 
 ## Getting Started
 
@@ -74,7 +73,7 @@ Milestone 2 extended that baseline with the identity-cap pair-generation variant
 
 Milestone 3 turned that pipeline into a deployable inference system: explicit face embeddings with `InceptionResnetV1`, separate inference stages, CLI entrypoint, confidence reporting, Docker packaging, and load testing.
 
-Milestone 4 finalizes the system as a reproducible release: System Card, fairness-risk and limitation discussion, CPU profiling with per-stage latency and batch-size sensitivity, Docker reproduction steps, and final tag guidance.
+Milestone 4 finalizes the system as a reproducible release: System Card, fairness-risk and limitation discussion, CPU profiling with per-stage latency and batch-size sensitivity, Docker reproduction steps.
 
 ## Milestone 1
 
@@ -385,7 +384,7 @@ Milestone 4 is the final audit, profiling, and release pass for the embedding-ba
 
 * `reports/System_Card_Milestone4.md` describes intended use, out-of-scope uses, data limitations, operating threshold, metrics, failure modes, fairness-related risks, and operational constraints.
 * `reports/Profiling_Report_Milestone4.md` reports the required CPU baseline, preprocessing vs embedding vs scoring latency, and batch-size sensitivity.
-* `reports/Reproducibility_Checklist_Milestone4.md` gives the shortest exact command path for a clean-clone reproduction and final tag.
+* `reports/Reproducibility_Checklist_Milestone4.md` gives the shortest exact command path for a clean-clone reproduction.
 
 Run CPU profiling:
 

@@ -2,6 +2,8 @@
 
 End-to-end face verification pipeline. The repo covers deterministic data ingestion, pair generation, tracked evaluation, an embedding-based inference path built around `InceptionResnetV1`, Docker packaging, local load testing, CPU profiling, and final Milestone 4 release documentation.
 
+![Example final inference pair: same-identity verification result with score, threshold, decision, confidence, and latency](reports/evidence/figures/final_inference_pair_example.png)
+
 ## What This Repo Produces
 
 The system outputs:
@@ -446,13 +448,6 @@ Artifacts:
 * `outputs/runs/<run_id>/run_info.json` - run metadata, including selected threshold
 * `outputs/runs/<run_id>/threshold_metrics.csv` - validation sweep summary
 * `reports/evidence/profiling/profile_summary.json` - CPU profiling summary
-
-After the final verification passes, create the release tag on the committed release:
-
-```bash
-git tag v1.0-final
-git push origin v1.0-final
-```
 
 ## Repo Layout
 

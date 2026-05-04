@@ -101,9 +101,4 @@ Responsible use requires additional evaluation on the intended population and ca
 
 ## Reproducibility Pointer
 
-Use [README.md](../README.md) as the release entry point and [Reproducibility_Checklist_Milestone4.md](Reproducibility_Checklist_Milestone4.md) for exact commands. The final tag should be created after the README, System Card, profiling report, and checklist are committed and verified:
-
-```bash
-git tag v1.0-final
-git push origin v1.0-final
-```
+Use [README.md](../README.md) as the release entry point and [Reproducibility_Checklist_Milestone4.md](Reproducibility_Checklist_Milestone4.md) for exact commands. 

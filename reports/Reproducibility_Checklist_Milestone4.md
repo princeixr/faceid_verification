@@ -91,16 +91,3 @@ The Docker image does not include `data/` or `outputs/`; mount the repo as shown
 * Final config: `configs/default.yaml`
 * CLI entrypoint: `scripts/infer_pair.py`
 * Profiling entrypoint: `scripts/profile_inference.py`
-
-## 9. Create Final Tag
-
-Only tag after the documents, profiling summaries, tests, and Docker smoke test are aligned and committed.
-
-```bash
-git status
-git add README.md configs/default.yaml scripts/infer_pair.py scripts/profile_inference.py reports/
-git commit -m "Finalize milestone 4 release artifacts"
-git tag v1.0-final
-git push origin main
-git push origin v1.0-final
-```

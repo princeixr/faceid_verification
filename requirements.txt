@@ -1,5 +1,4 @@
 # Minimal requirements for this project.
-
 numpy
 pandas
 matplotlib

@@ -96,8 +96,7 @@ def _derive_confidence(score: float, threshold: float, *, higher_means_same: boo
     can be replaced later by a calibrated model if the project adds one.
     """
 
-    # margin = score - threshold if higher_means_same else threshold - score
-    margin = np.abs(score - threshold)
+    margin = score - threshold if higher_means_same else threshold - score
     confidence = 1.0 / (1.0 + np.exp(-sharpness * margin))
     return float(confidence)
 

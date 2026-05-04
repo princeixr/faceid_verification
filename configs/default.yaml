@@ -96,7 +96,7 @@ benchmark:
 similarity_threshold:
   range: [0.3, 0.95]
   increment: 0.05
-  default: 0.3
+  default: 0.4
 
 # Confidence computation configuration
 confidence:
